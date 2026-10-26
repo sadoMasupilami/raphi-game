@@ -28,7 +28,7 @@ jobs:
       - name: Seite zusammenstellen
         run: |
           mkdir -p _site
-          cp -r index.html manifest.webmanifest css js icons _site/
+          cp -r index.html manifest.webmanifest sw.js css js icons _site/
           touch _site/.nojekyll
           # Version + Cache-Busting: jede Datei bekommt ?v=<commit> in der URL
           V="${GITHUB_SHA::8}"

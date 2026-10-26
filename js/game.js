@@ -68,6 +68,8 @@ export class Game {
     this.killStreak = 0;
     this.pulseT = 8;
     this.particles = [];
+    this.corpses = [];
+    this.lowFx = false;
     this.texts = [];
     this.rings = [];
     this.bolts = [];
@@ -565,6 +567,9 @@ export class Game {
     p.x = clamp(p.x + p.vx * dt, p.r, ARENA.w - p.r);
     p.y = clamp(p.y + p.vy * dt, p.r, ARENA.h - p.r);
     if (p.dashT > 0 && s.dashDmg > 0) this.dashHits(p);
+    if (!this.lowFx && p.dashT <= 0 && (p.vx || p.vy) && Math.random() < 0.35) {
+      this.particle(p.x - p.faceX * 12 + rand(-3, 3), p.y - p.faceY * 12 + rand(-3, 3), -p.faceX * 60, -p.faceY * 60, 0.25, this.char.color, 2.5);
+    }
     if (s.magnetPulse > 0) {
       this.pulseT -= dt;
       if (this.pulseT <= 0) {
@@ -1265,6 +1270,7 @@ export class Game {
     this.kills++;
     this.score += Math.max(1, e.xp) * 10;
     this.burst(e.x, e.y, e.def.color, e.def.boss ? 60 : 9, e.def.boss ? 400 : 170);
+    if (!this.lowFx && this.corpses.length < 40) this.corpses.push({ sprite: e.sprite, x: e.x, y: e.y, rot: e.rot * 0.5, life: 0.22, max: 0.22 });
     audio.play('kill');
     if (this.stats.detonator > 0 && ++this.killStreak % 8 === 0) {
       const dd = (12 + this.wave * 4) * Math.max(0.1, 1 + this.stats.dmg / 100) * this.stats.detonator;
@@ -1696,11 +1702,12 @@ export class Game {
 
   // ================= Effekte =================
   particle(x, y, vx, vy, life, color, size) {
-    if (this.particles.length >= MAX_PARTICLES) return;
+    if (this.particles.length >= (this.lowFx ? 120 : MAX_PARTICLES)) return;
     this.particles.push({ x, y, vx, vy, life, max: life, color, size });
   }
 
   burst(x, y, color, n, speed) {
+    if (this.lowFx) n = Math.ceil(n * 0.35);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = rand(0.3, 1) * speed;
@@ -1736,6 +1743,7 @@ export class Game {
     decay(this.bolts);
     decay(this.beams);
     decay(this.arcs);
+    decay(this.corpses);
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 30);
   }
 

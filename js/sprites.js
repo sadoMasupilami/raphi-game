@@ -124,11 +124,11 @@ export function enemySprite(type, def, elite = false) {
       g.fillStyle = color;
       g.fill();
     } else {
-      // "Auge"
-      g.beginPath();
-      g.arc(0, 0, Math.max(2.5, r * 0.28), 0, Math.PI * 2);
-      g.fillStyle = '#fff';
-      g.fill();
+      // Inneres Detail – das Auge wird beim Zeichnen Richtung Spieler gesetzt
+      enemyPath(g, def.shape, r * 0.55);
+      g.strokeStyle = hexToRgba(color, 0.45);
+      g.lineWidth = 1.2;
+      g.stroke();
     }
     if (elite) {
       g.strokeStyle = '#fff';
@@ -149,24 +149,98 @@ export function whiteSprite(type, def, elite = false) {
 }
 
 // ---------- Spieler ----------
-export function playerSprite(color) {
-  return makeSprite(`p:${color}`, 34, (g) => {
-    // Körper
+// Körper je Charakter; das Visier wird pro Frame in Blickrichtung gezeichnet
+function playerBody(g, id, color) {
+  g.fillStyle = hexToRgba(color, 0.25);
+  neon(g, color, 3, 14);
+  switch (id) {
+    case 'vex': // Klingen-Flossen
+      g.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = Math.PI / 2 + (i - 1) * 0.7;
+        g.moveTo(Math.cos(a - 0.25) * 12, Math.sin(a - 0.25) * 12);
+        g.lineTo(Math.cos(a) * 21, Math.sin(a) * 21);
+        g.lineTo(Math.cos(a + 0.25) * 12, Math.sin(a + 0.25) * 12);
+      }
+      g.stroke();
+      g.beginPath(); g.arc(0, 0, 13, 0, Math.PI * 2); g.fill(); g.stroke();
+      break;
+    case 'nyx': // Kapuze und Antenne
+      g.beginPath();
+      g.moveTo(0, -20); g.lineTo(13, -4); g.arc(0, 2, 13, -0.4, Math.PI + 0.4); g.closePath();
+      g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(5, -16); g.lineTo(11, -24); g.stroke();
+      g.beginPath(); g.arc(11, -24, 2, 0, Math.PI * 2); g.fillStyle = color; g.fill();
+      break;
+    case 'brock': // Mech mit Schulterblöcken
+      g.beginPath(); g.roundRect(-12, -12, 24, 24, 6); g.fill(); g.stroke();
+      g.beginPath(); g.rect(-19, -8, 6, 14); g.rect(13, -8, 6, 14); g.stroke();
+      break;
+    case 'echo': // schlanke Raute
+      g.beginPath(); g.moveTo(0, -18); g.lineTo(12, 0); g.lineTo(0, 18); g.lineTo(-12, 0); g.closePath();
+      g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(0, -10); g.lineTo(0, 10); g.lineWidth = 1.5; g.stroke();
+      break;
+    case 'ronin': // Hörner
+      g.beginPath(); g.moveTo(-8, -10); g.lineTo(-15, -21); g.lineTo(-3, -13); g.moveTo(8, -10); g.lineTo(15, -21); g.lineTo(3, -13); g.stroke();
+      g.beginPath(); g.arc(0, 0, 13, 0, Math.PI * 2); g.fill(); g.stroke();
+      break;
+    case 'kai': // Rotoren
+      for (const [x, y] of [[-13, -13], [13, -13], [-13, 13], [13, 13]]) {
+        g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.lineWidth = 1.5; g.stroke();
+      }
+      g.lineWidth = 3;
+      g.beginPath(); g.arc(0, 0, 12, 0, Math.PI * 2); g.fill(); g.stroke();
+      break;
+    case 'prisma': { // Prisma mit Regenbogen-Kanten
+      const cols = ['#ff6a2a', '#5fe3ff', '#ffe94a', '#b45cff', '#ff4fa0', '#7dff5a'];
+      for (let i = 0; i < 6; i++) {
+        const a0 = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        const a1 = ((i + 1) / 6) * Math.PI * 2 - Math.PI / 2;
+        g.beginPath();
+        g.moveTo(Math.cos(a0) * 15, Math.sin(a0) * 15);
+        g.lineTo(Math.cos(a1) * 15, Math.sin(a1) * 15);
+        neon(g, cols[i], 3, 10);
+        g.stroke();
+      }
+      g.beginPath(); poly(g, 6, 14, -Math.PI / 2); g.fillStyle = 'rgba(255,255,255,0.12)'; g.fill();
+      break;
+    }
+    default:
+      g.beginPath(); g.arc(0, 0, 14, 0, Math.PI * 2); g.fill(); g.stroke();
+  }
+}
+
+export function playerSprite(id, color) {
+  return makeSprite(`p:${id}:${color}`, 46, (g) => playerBody(g, id, color));
+}
+
+const avatarCache = new Map();
+export function playerIconURL(id, color) {
+  if (avatarCache.has(id)) return avatarCache.get(id);
+  const c = document.createElement('canvas');
+  c.width = c.height = 120;
+  const g = c.getContext('2d');
+  g.translate(60, 60);
+  g.scale(2.3, 2.3);
+  playerBody(g, id, color);
+  g.shadowBlur = 0;
+  g.fillStyle = '#fff';
+  g.beginPath();
+  g.roundRect(-6, -2.5, 12, 5, 2.5);
+  g.fill();
+  const url = c.toDataURL();
+  avatarCache.set(id, url);
+  return url;
+}
+
+export function eyeSprite() {
+  return makeSprite('eye', 6, (g) => {
     g.beginPath();
-    g.arc(0, 0, 14, 0, Math.PI * 2);
-    g.fillStyle = hexToRgba(color, 0.25);
-    g.fill();
-    neon(g, color, 3, 14);
-    g.stroke();
-    // Visier
-    g.shadowBlur = 8;
-    g.beginPath();
-    g.moveTo(-7, -3);
-    g.lineTo(7, -3);
-    g.lineTo(5, 3);
-    g.lineTo(-5, 3);
-    g.closePath();
-    g.fillStyle = '#ffffff';
+    g.arc(0, 0, 3, 0, Math.PI * 2);
+    g.fillStyle = '#fff';
+    g.shadowColor = '#fff';
+    g.shadowBlur = 4;
     g.fill();
   });
 }

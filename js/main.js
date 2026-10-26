@@ -7,7 +7,7 @@ import { Game } from './game.js';
 import { Renderer } from './render.js';
 import { input } from './input.js';
 import { audio } from './audio.js';
-import { weaponIconURL } from './sprites.js';
+import { weaponIconURL, playerIconURL } from './sprites.js';
 import { ACHIEVEMENTS, Progress, normalizeProgress, isUnlocked } from './progress.js';
 
 const $ = (s) => document.querySelector(s);
@@ -19,7 +19,8 @@ const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content 
 const store = loadStore();
 function loadStore() {
   const def = {
-    settings: { sfx: true, music: true, vibrate: true, dmgMode: 'all', shake: true, fullscreen: true, dashSide: 'right' },
+    settings: { sfx: true, music: true, vibrate: true, dmgMode: 'all', shake: true, fullscreen: true, dashSide: 'right', quality: 'auto' },
+    autoLow: false,
     highscores: {},
     lastChar: 'vex',
     lastDiff: 'normal',
@@ -216,7 +217,7 @@ function renderSelect() {
     if (!isUnlocked(store.progress, c.id)) {
       const ach = ACHIEVEMENTS.find((a) => a.unlocks === c.id);
       return `<div class="char-card locked" style="--c:${c.color}">
-        <div class="char-avatar"></div>
+        <img class="char-avatar-img" src="${playerIconURL(c.id, c.color)}" alt="">
         <div class="char-name">🔒 ${c.name}</div>
         <div class="char-title">${c.title}</div>
         <div class="lock-info">Freischalten:<br>${ach.desc}</div>
@@ -224,7 +225,7 @@ function renderSelect() {
     }
     const perks = c.perks.map((p) => `<li class="${p.startsWith('−') || p.startsWith('⚠') ? 'neg' : 'pos'}">${p}</li>`).join('');
     return `<div class="char-card ${c.id === selectedChar ? 'selected' : ''}" data-id="${c.id}" style="--c:${c.color}">
-      <div class="char-avatar"></div>
+      <img class="char-avatar-img" src="${playerIconURL(c.id, c.color)}" alt="">
       <div class="char-name">${c.name}</div>
       <div class="char-title">${c.title}</div>
       <div class="char-weapon"><img src="${weaponIconURL(c.weapon, ELEMENTS[wd.elem].color)}" alt="">${wd.name}</div>
@@ -273,6 +274,7 @@ const hooks = {
 function startGame() {
   game = new Game(selectedChar, selectedDiff, hooks);
   game.dmgMode = store.settings.dmgMode;
+  game.lowFx = lowFxActive();
   hideAll();
   $('#hud').classList.remove('hidden');
   $('#boss-bar').classList.add('hidden');
@@ -599,6 +601,7 @@ function renderSettings() {
     ['vibrate', 'Vibration'],
     ['dmgMode', 'Schadenszahlen', [['all', 'Alle'], ['crit', 'Nur Krits'], ['off', 'Aus']]],
     ['dashSide', 'Dash-Knopf', [['right', 'Rechts'], ['left', 'Links']]],
+    ['quality', 'Grafik', [['auto', 'Automatisch'], ['high', 'Hoch'], ['low', 'Sparsam']]],
     ['shake', 'Bildschirm-Wackeln'],
     ['fullscreen', 'Vollbild beim Start'],
   ];
@@ -622,6 +625,7 @@ function renderSettings() {
       if (choices) {
         const i = choices.findIndex((c) => c[0] === store.settings[k]);
         store.settings[k] = choices[(i + 1) % choices.length][0];
+        if (k === 'quality') store.autoLow = false;
       } else {
         store.settings[k] = !store.settings[k];
       }
@@ -632,7 +636,18 @@ function renderSettings() {
   });
 }
 
+function lowFxActive() {
+  const q = store.settings.quality;
+  return q === 'low' || (q === 'auto' && store.autoLow);
+}
+
 function applySettings() {
+  const low = lowFxActive();
+  if (renderer.lowFx !== low) {
+    renderer.lowFx = low;
+    renderer.resize();
+  }
+  if (game) game.lowFx = low;
   audio.setSfx(store.settings.sfx);
   audio.setMusic(store.settings.music);
   renderer.shakeOn = store.settings.shake;
@@ -853,6 +868,10 @@ function applyUpdate() {
 }
 
 $('#version').textContent = `Version ${APP_VERSION}`;
+// Offline spielbar: Service Worker nur auf der veröffentlichten Seite
+if ('serviceWorker' in navigator && APP_VERSION !== 'dev') {
+  navigator.serviceWorker.register(`sw.js?v=${APP_VERSION}`).catch(() => {});
+}
 setInterval(checkForUpdate, 60000);
 checkForUpdate();
 
@@ -902,9 +921,29 @@ function updateHUD() {
 // ================= Schleife =================
 let last = performance.now();
 let menuT = 0;
+// Automatischer Leistungsmodus: misst die Bildrate während des Spielens
+const perf = { t: 0, frames: 0, slow: 0 };
+function measurePerf(rawDt) {
+  if (store.settings.quality !== 'auto' || store.autoLow) return;
+  perf.t += rawDt;
+  perf.frames++;
+  if (perf.t < 3) return;
+  const fps = perf.frames / perf.t;
+  perf.t = 0;
+  perf.frames = 0;
+  perf.slow = fps < 42 ? perf.slow + 1 : 0;
+  if (perf.slow >= 2) {
+    store.autoLow = true;
+    saveStore();
+    applySettings();
+    toast('⚙ Sparsame Grafik aktiviert, damit es flüssig läuft', '#9ad8ff');
+  }
+}
 function frame(now) {
-  const dt = Math.min(0.033, Math.max(0, (now - last) / 1000));
+  const rawDt = Math.max(0, (now - last) / 1000);
+  const dt = Math.min(0.033, rawDt);
   last = now;
+  if (game && game.state === 'play' && rawDt < 0.5) measurePerf(rawDt);
   if (game) {
     if (game.state === 'play') game.update(dt);
     else if (game.state === 'over' || game.state === 'intermission') game.updateIdle(dt);

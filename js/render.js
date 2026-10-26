@@ -2,7 +2,7 @@
 import { ELEMENTS, WEAPONS } from './data.js';
 import { ARENA } from './game.js';
 import { input } from './input.js';
-import { drawSprite, dotSprite, playerSprite, pickupSprite, weaponSprite, hexToRgba } from './sprites.js';
+import { drawSprite, dotSprite, playerSprite, eyeSprite, pickupSprite, weaponSprite, hexToRgba } from './sprites.js';
 
 export class Renderer {
   constructor(canvas) {
@@ -11,13 +11,14 @@ export class Renderer {
     this.camX = 0;
     this.camY = 0;
     this.shakeOn = true;
+    this.lowFx = false;
     this.resize();
   }
 
   resize() {
     this.w = window.innerWidth;
     this.h = window.innerHeight;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.dpr = Math.min(window.devicePixelRatio || 1, this.lowFx ? 1 : 2);
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.zoom = Math.max(0.6, Math.min(1.6, Math.min(this.w, this.h) / 480));
@@ -109,12 +110,14 @@ export class Renderer {
     for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
     ctx.stroke();
     // Akzentlinien
+    if (!this.lowFx) {
     ctx.strokeStyle = 'rgba(255,60,200,0.07)';
     ctx.lineWidth = 3;
     ctx.beginPath();
     for (let x = Math.ceil(x0 / 300) * 300; x <= x1; x += 300) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
     for (let y = Math.ceil(y0 / 300) * 300; y <= y1; y += 300) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
     ctx.stroke();
+    }
     // Rand
     ctx.strokeStyle = 'rgba(0,240,255,0.18)';
     ctx.lineWidth = 12;
@@ -238,6 +241,14 @@ export class Renderer {
   }
 
   drawEnemies(ctx, game) {
+    const eye = eyeSprite();
+    // Zerfallende Gegner
+    for (const c of game.corpses) {
+      const k = c.life / c.max;
+      ctx.globalAlpha = k * 0.8;
+      drawSprite(ctx, c.sprite, c.x, c.y, c.rot, 1 + (1 - k) * 0.7);
+    }
+    ctx.globalAlpha = 1;
     const vx0 = this.camX - 80;
     const vy0 = this.camY - 80;
     const vx1 = this.camX + this.viewW + 80;
@@ -247,6 +258,13 @@ export class Renderer {
       const rot = e.def.shape === 'tri' || e.def.shape === 'spike' ? Math.atan2(game.player.y - e.y, game.player.x - e.x) : e.rot * 0.5;
       const sc = e.spawnT > 0 ? 1 - e.spawnT / 0.25 * 0.6 : 1;
       drawSprite(ctx, e.flash > 0 ? e.white : e.sprite, e.x, e.y, rot, sc);
+      if (!e.def.boss && e.flash <= 0) {
+        const ex = game.player.x - e.x;
+        const ey = game.player.y - e.y;
+        const el = Math.hypot(ex, ey) || 1;
+        const off = e.r * 0.28;
+        drawSprite(ctx, eye, e.x + (ex / el) * off, e.y + (ey / el) * off, 0, Math.max(0.7, e.r / 15) * sc);
+      }
       if (e.shieldHp > 0) {
         const f = e.shieldHp / e.shieldMax;
         ctx.strokeStyle = `rgba(110,180,255,${0.3 + 0.6 * f})`;
@@ -347,7 +365,24 @@ export class Renderer {
     }
     const blink = p.iframes > 0 && game.state === 'play' && Math.floor(game.time * 20) % 2 === 0;
     ctx.globalAlpha = blink ? 0.4 : 1;
-    drawSprite(ctx, playerSprite(game.char.color), p.x, p.y);
+    const moving = Math.abs(p.vx) + Math.abs(p.vy) > 10;
+    const bob = moving ? Math.sin(game.time * 18) * 0.07 : Math.sin(game.time * 3) * 0.03;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(Math.atan2(p.faceY, p.faceX) + Math.PI / 2);
+    ctx.scale(1 + bob, 1 - bob);
+    if (p.dashT > 0) ctx.scale(1.15, 1.15);
+    drawSprite(ctx, playerSprite(game.char.id, game.char.color), 0, 0);
+    ctx.restore();
+    // Visier zeigt in Blickrichtung
+    ctx.save();
+    ctx.translate(p.x + p.faceX * 4, p.y + p.faceY * 4);
+    ctx.rotate(Math.atan2(p.faceY, p.faceX) + Math.PI / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(-6, -2.5, 12, 5, 2.5);
+    ctx.fill();
+    ctx.restore();
     ctx.globalAlpha = 1;
     if (game.stats.shield > 0 && p.shieldT <= 0) {
       ctx.strokeStyle = 'rgba(125,249,255,0.55)';
