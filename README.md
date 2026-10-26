@@ -16,12 +16,18 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 - **7 Charaktere:** 3 davon werden über Erfolge freigeschaltet (RONIN, KAI, PRISMA).
 - **Fortschritt:** 13 Erfolge, ein Logbuch mit Statistiken und allen Entdeckungen, ein Tutorial beim ersten Start und ein Highscore pro Schwierigkeit.
 - **Lesbarkeit:** Pfeile am Rand zeigen Boss, Elites und Kapseln außerhalb der Sicht. Explosionen und Laser werden vorher angekündigt.
-- **Soundtrack:** 4 eigene Songs, komplett live synthetisiert:
-  - „Neon-Skyline“ (Menü, Synthwave)
-  - „Overdrive“ (Kampf, 138 BPM, mit Breakdown und Drop)
-  - „Omega-Protokoll“ (Boss, 150 BPM, verzerrter Bass)
-  - „Schwarzmarkt“ (Shop, Groove mit Swing)
-  - Dazu Sidechain-Pumpen, Echo und Hall. Die Kampfmusik wird mit mehr Gegnern dichter, und in Pause und Level-Up klingt sie gedämpft.
+- **Soundtrack:** 8 eigene Songs, komplett live synthetisiert. Die Kampfmusik wechselt alle 5 Wellen und wird dabei schneller und härter:
+
+  | Wellen | Song | Tempo |
+  |---|---|---|
+  | 1–4 | „Overdrive“ | 138 BPM |
+  | 5–9 | „Hyperdrive“ | 146 BPM |
+  | 10 (Zwischenboss) | „Alarmstufe Rot“ | 150 BPM |
+  | 11–14 | „Blackout“ | 152 BPM, industriell |
+  | 15–19 | „Overclock“ | 160 BPM, mit Tonart-Rückung im zweiten Drop |
+  | 20 (Endboss) | „Kernschmelze“ | 172 BPM, mit Halftime-Teil |
+
+  Dazu kommen „Neon-Skyline“ im Menü und „Schwarzmarkt“ im Shop. Bass und Flächen pumpen mit der Kickdrum (Sidechain), dazu gibt es Echo und Hall. Die Musik wird mit mehr Gegnern dichter, und in Pause und Level-Up klingt sie gedämpft.
 - **Technik:** Grafik und Sound werden komplett im Code erzeugt, ohne externe Assets.
   - Das Spiel lässt sich als App installieren und ist offline spielbar (Service Worker).
   - Auf langsamen Handys schaltet es automatisch auf sparsame Grafik.
@@ -56,4 +62,4 @@ So muss man nicht die 10 Minuten abwarten, die GitHub Pages Dateien im Cache hä
 | `sw.js` | Service Worker (offline spielbar) |
 | `js/input.js` | Touch-Joystick und Tastatur |
 | `js/audio.js` | Synthetisierte Soundeffekte |
-| `js/music.js` | Soundtrack: Synthesizer, Effekte und Sequencer mit 4 Songs |
+| `js/music.js` | Soundtrack: Synthesizer, Effekte und Sequencer mit 8 Songs |

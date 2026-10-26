@@ -7,7 +7,7 @@ import { Game } from './game.js';
 import { Renderer } from './render.js';
 import { input } from './input.js';
 import { audio } from './audio.js';
-import { music } from './music.js';
+import { music, SONGS } from './music.js';
 import { weaponIconURL, playerIconURL } from './sprites.js';
 import { ACHIEVEMENTS, Progress, normalizeProgress, isUnlocked } from './progress.js';
 
@@ -295,6 +295,8 @@ function resumePlay() {
 function pauseGame() {
   if (!game || game.state !== 'play') return;
   game.state = 'paused';
+  const sn = SONGS[waveSong(game.wave)];
+  $('#now-playing').textContent = audio.music && sn ? `♪ Läuft gerade: ${sn.name}` : '';
   show('pause');
 }
 
@@ -940,21 +942,42 @@ function measurePerf(rawDt) {
     toast('⚙ Sparsame Grafik aktiviert, damit es flüssig läuft', '#9ad8ff');
   }
 }
+// Kampfmusik nach Welle: alle 5 Wellen ein neuer, härterer Song
+function waveSong(w) {
+  if (w === 10) return 'boss';
+  if (w === 20) return 'final';
+  if (w > 20) {
+    if (w % 5 === 0) return w % 10 === 0 ? 'final' : 'boss';
+    return ['overclock', 'blackout', 'hyper'][Math.floor((w - 21) / 5) % 3];
+  }
+  if (w < 5) return 'battle';
+  if (w < 10) return 'hyper';
+  if (w < 15) return 'blackout';
+  return 'overclock';
+}
+
 // Passenden Song zum Spielzustand wählen
+let lastSongName = null;
 function updateMusic() {
   let song = 'menu';
   let muffled = false;
   if (game) {
     const w = game.wave;
-    const bossWave = w === 10 || w === 20 || (w > 20 && w % 5 === 0);
     if (game.state === 'over') song = game.victory ? 'menu' : 'none';
     else if (game.state === 'intermission') song = 'shop';
-    else song = bossWave ? 'boss' : 'battle';
+    else song = waveSong(w);
     muffled = game.state === 'paused' || game.state === 'levelup';
     music.setIntensity(Math.min(1, game.enemies.length / 70 + w / 40));
   }
   music.play(song);
   music.setMuffled(muffled);
+  // Neuen Kampf-Song kurz einblenden
+  if (song !== lastSongName) {
+    lastSongName = song;
+    if (game && game.state === 'play' && SONGS[song] && audio.music) {
+      setTimeout(() => toast(`♪ ${SONGS[song].name.toUpperCase()}`, '#ff2bd6'), 1600);
+    }
+  }
 }
 
 function frame(now) {

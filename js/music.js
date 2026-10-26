@@ -1,5 +1,5 @@
 // Soundtrack: Sequencer und Synthesizer komplett in WebAudio (keine Audiodateien)
-// Vier Songs: Menü (Synthwave), Kampf (Drive), Boss (dunkel & hart), Shop (Groove)
+// Songs: Menü, Shop, vier Kampf-Stufen (alle 5 Wellen härter), Zwischenboss und Endboss
 
 const NOTE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 const m = (name) => {
@@ -391,6 +391,69 @@ export class Synth {
     g.connect(this.dry);
     this.send(g, 0.3, 0.45);
   }
+  // ---------- Zusätzliche Instrumente für die späteren Wellen ----------
+  // Kurzer, gegateter Akkord-Stab
+  stab(t, notes, dur, v = 1, cutoff = 2600) {
+    const c = this.ctx;
+    const end = t + dur;
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = 3;
+    f.frequency.setValueAtTime(cutoff * 1.6, t);
+    f.frequency.exponentialRampToValueAtTime(cutoff * 0.5, end);
+    const g = c.createGain();
+    this.env(g.gain, t, 0.003, 0.05 * v, 0.02, end);
+    for (const n of notes) {
+      for (const det of [-9, 9]) this.osc('sawtooth', hz(n), t, end, det).connect(f);
+    }
+    f.connect(g).connect(this.side);
+    this.send(g, 0.35, 0.25);
+  }
+
+  // Fetter Supersaw-Lead (fünf verstimmte Sägezähne)
+  supersaw(t, midi, dur, v = 1, bright = 4200) {
+    const c = this.ctx;
+    const end = t + dur;
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = 1;
+    f.frequency.setValueAtTime(bright * 1.3, t);
+    f.frequency.exponentialRampToValueAtTime(bright, t + 0.1);
+    const g = c.createGain();
+    this.env(g.gain, t, 0.01, 0.055 * v, Math.min(0.1, dur * 0.3), end);
+    for (const det of [-26, -12, 0, 12, 26]) this.osc('sawtooth', hz(midi), t, end, det).connect(f);
+    const sub = this.osc('square', hz(midi - 12), t, end);
+    const sg = c.createGain();
+    sg.gain.value = 0.35;
+    sub.connect(sg).connect(f);
+    f.connect(g).connect(this.dry);
+    this.send(g, 0.3, 0.35);
+  }
+
+  // Industrieller Metall-Schlag
+  metal(t, v = 1) {
+    const g1 = this.noiseHit(t, 0.35, 0.3 * v, 'bandpass', 720, 9);
+    const g2 = this.noiseHit(t, 0.25, 0.22 * v, 'bandpass', 1650, 11);
+    this.send(g1, 0.2, 0.5);
+    this.send(g2, 0, 0.4);
+  }
+
+  // Aufsteigende Sirene für Breakdowns
+  siren(t, midi, dur, v = 1) {
+    const c = this.ctx;
+    const end = t + dur;
+    const o = this.osc('sawtooth', hz(midi), t, end);
+    o.frequency.exponentialRampToValueAtTime(hz(midi + 12), t + dur * 0.5);
+    o.frequency.exponentialRampToValueAtTime(hz(midi), end);
+    const f = c.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 1500;
+    f.Q.value = 1.5;
+    const g = c.createGain();
+    this.env(g.gain, t, 0.05, 0.07 * v, 0.1, end);
+    o.connect(f).connect(g).connect(this.dry);
+    this.send(g, 0.4, 0.4);
+  }
 }
 
 // ===================== Songs =====================
@@ -470,9 +533,9 @@ const BATTLE = {
   },
 };
 
-// --- BOSS: "Omega-Protokoll" – E-Moll harmonisch, 150 BPM ---
+// --- BOSS (Welle 10): "Alarmstufe Rot" – E-Moll harmonisch, 150 BPM ---
 const BOSS = {
-  name: 'Omega-Protokoll',
+  name: 'Alarmstufe Rot',
   bpm: 150,
   form: [['intro', 4], ['A', 8], ['B', 8], ['break', 4]],
   loopFrom: 1,
@@ -609,7 +672,306 @@ const SHOP = {
   },
 };
 
-export const SONGS = { battle: BATTLE, boss: BOSS, menu: MENU, shop: SHOP };
+// --- WELLE 5–9: "Hyperdrive" – E-Moll, 146 BPM ---
+const HYPER = {
+  name: 'Hyperdrive',
+  bpm: 146,
+  form: [['intro', 4], ['A', 8], ['B', 8], ['break', 4], ['drop', 8]],
+  loopFrom: 1,
+  chords: [
+    chord('E2', ['E4', 'G4', 'B4', 'E5']),
+    chord('C2', ['E4', 'G4', 'C5', 'E5']),
+    chord('G1', ['D4', 'G4', 'B4', 'D5']),
+    chord('D2', ['D4', 'F#4', 'A4', 'D5']),
+  ],
+  bassPat: 'x.xxx.xxx.xxx.xx',
+  leadB: mel([
+    'E5:0:3 G5:3:3 B5:6:4 A5:10:2 G5:12:4',
+    'E5:0:4 G5:4:2 C6:6:6 B5:12:4',
+    'D5:0:3 G5:3:3 B5:6:4 D6:10:6',
+    'F#5:0:4 A5:4:4 D6:8:4 C6:12:2 B5:14:2',
+    'E5:0:3 G5:3:3 B5:6:4 E6:10:6',
+    'E6:0:4 D6:4:2 C6:6:6 G5:12:4',
+    'B5:0:3 D6:3:3 G6:6:4 F#6:10:2 E6:12:4',
+    'F#6:0:8 D6:8:4 A5:12:4',
+  ]),
+  leadDrop: mel([
+    'E6:0:2 B5:2:2 G5:4:2 B5:6:2 E6:8:2 F#6:10:2 G6:12:4',
+    'G6:0:2 E6:2:2 C6:4:2 E6:6:2 G6:8:4 E6:12:4',
+    'D6:0:2 B5:2:2 G5:4:2 B5:6:2 D6:8:2 E6:10:2 F#6:12:4',
+    'F#6:0:4 E6:4:2 D6:6:2 A5:8:4 D6:12:4',
+    'E6:0:2 B5:2:2 G5:4:2 B5:6:2 E6:8:2 F#6:10:2 G6:12:4',
+    'A6:0:2 G6:2:2 E6:4:2 C6:6:2 E6:8:4 G6:12:4',
+    'B6:0:4 A6:4:2 G6:6:2 D6:8:4 G6:12:4',
+    'F#6:0:4 G6:4:4 A6:8:8',
+  ]),
+  step(e) {
+    const { S, sec, lb, s, t, ch, sd, x } = e;
+    const playing = sec !== 'break';
+    if (playing && (s % 4 === 0 || (s === 14 && lb % 4 === 3))) S.kick(t, 1, 1.05);
+    if (sec !== 'intro' && playing && (s === 4 || s === 12)) { S.snare(t, 1); S.clap(t, 0.8); }
+    if (sec === 'intro' && lb >= 2 && s % 4 === 2) S.clap(t, 0.5);
+    if (playing) S.hat(t, sec === 'drop' && s % 4 === 2, s % 4 === 2 ? 0.9 : s % 2 === 1 ? 0.35 + x * 0.3 : 0.5);
+    if (sec === 'break' && lb >= 2) S.snare(t, lb === 2 ? (s % 4 === 0 ? 0.4 : 0) : 0.2 + (s / 16) * 0.8);
+    if (sec === 'break' && lb === 2 && s === 0) S.riser(t, sd * 32, 1.1);
+    if (s === 0 && lb % 4 === 0 && (sec === 'A' || sec === 'drop')) S.crash(t);
+    // Bass
+    if (playing && has(this.bassPat, s)) {
+      const cut = sec === 'intro' ? 400 + lb * 300 : sec === 'drop' ? 2600 : 1700;
+      S.bass(t, ch.bass + (s % 4 === 3 ? 12 : 0), sd * 0.85, cut, 0.95);
+    } else if (!playing && s === 0) S.bass(t, ch.bass, sd * 15.5, 280, 0.45);
+    // Stabs auf den Offbeats
+    if ((sec === 'A' || sec === 'drop') && s % 4 === 2) S.stab(t, ch.tones.slice(0, 3), sd * 0.9, sec === 'drop' ? 1.2 : 0.9);
+    if (s === 0 && (sec === 'B' || sec === 'break' || sec === 'drop')) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, sec === 'break' ? 1.4 : 0.7, 1800);
+    // Arpeggio über zwei Oktaven
+    if (sec === 'B' || sec === 'break' || sec === 'drop' || (sec === 'A' && lb >= 4)) {
+      const seq = [0, 1, 2, 3, 4, 3, 2, 1];
+      const i = seq[s % 8];
+      const n = i === 4 ? ch.tones[1] + 12 : ch.tones[i];
+      S.pluck(t, n + 12, sd * 0.7, sec === 'break' ? 1 : 0.6);
+    }
+    const L = sec === 'B' ? this.leadB : sec === 'drop' ? this.leadDrop : null;
+    if (L) {
+      const ev = L[lb % 8].get(s);
+      if (ev) {
+        if (sec === 'drop') S.supersaw(t, ev[0], ev[1] * sd * 0.95, 1);
+        else S.lead(t, ev[0], ev[1] * sd * 0.95, 1);
+      }
+    }
+  },
+};
+
+// --- WELLE 11–14: "Blackout" – C-Moll harmonisch, 152 BPM ---
+const BLACKOUT = {
+  name: 'Blackout',
+  bpm: 152,
+  form: [['intro', 4], ['A', 8], ['B', 8], ['break', 4], ['drop', 8]],
+  loopFrom: 1,
+  chords: [
+    chord('C2', ['C4', 'Eb4', 'G4', 'C5']),
+    chord('Ab1', ['C4', 'Eb4', 'Ab4', 'C5']),
+    chord('F1', ['C4', 'F4', 'Ab4', 'C5']),
+    chord('G1', ['B3', 'D4', 'G4', 'B4']),
+  ],
+  bassPat: 'x.x.x.xxx.x.x.xx',
+  leadB: mel([
+    'G5:0:4 C6:4:4 D6:8:2 Eb6:10:6',
+    'C6:0:4 Eb6:4:4 Ab6:8:4 G6:12:4',
+    'F6:0:3 Eb6:3:3 C6:6:2 Ab5:8:4 C6:12:4',
+    'B5:0:4 D6:4:4 G6:8:4 F6:12:2 D6:14:2',
+    'G5:0:4 C6:4:4 D6:8:2 Eb6:10:6',
+    'G6:0:4 F6:4:2 Eb6:6:2 C6:8:4 Eb6:12:4',
+    'Ab6:0:4 G6:4:2 F6:6:2 C6:8:4 F6:12:4',
+    'G6:0:8 B5:8:4 D6:12:4',
+  ]),
+  leadDrop: mel([
+    'C6:0:2 G5:2:2 C6:4:2 Eb6:6:2 G6:8:2 Eb6:10:2 C6:12:2 G5:14:2',
+    'Ab5:0:2 C6:2:2 Eb6:4:2 Ab6:6:2 G6:8:4 Eb6:12:4',
+    'F6:0:2 C6:2:2 Ab5:4:2 C6:6:2 F6:8:2 G6:10:2 Ab6:12:4',
+    'G6:0:2 D6:2:2 B5:4:2 D6:6:2 G6:8:4 B6:12:4',
+    'C6:0:2 G5:2:2 C6:4:2 Eb6:6:2 G6:8:2 Eb6:10:2 C6:12:2 G5:14:2',
+    'Ab5:0:2 C6:2:2 Eb6:4:2 Ab6:6:2 G6:8:4 Eb6:12:4',
+    'F6:0:2 C6:2:2 Ab5:4:2 C6:6:2 F6:8:2 G6:10:2 Ab6:12:4',
+    'C7:0:4 B6:4:4 G6:8:8',
+  ]),
+  step(e) {
+    const { S, sec, lb, s, t, ch, sd, x } = e;
+    const playing = sec !== 'break';
+    if (sec === 'intro') {
+      if (s % 4 === 0) S.kick(t, 0.9, 1.15);
+      if (s === 0 && lb % 2 === 0) S.metal(t, 1);
+      if (s === 0) S.bass(t, ch.bass, sd * 15, 300 + lb * 150, 0.8, true);
+      if (lb === 3 && s >= 8) S.snare(t, 0.3 + (s - 8) * 0.09);
+      if (s % 2 === 0 && lb >= 2) S.hat(t, false, 0.6);
+      return;
+    }
+    if (playing && s % 4 === 0) S.kick(t, 1, 1.15);
+    if (playing && (s === 4 || s === 12)) { S.snare(t, 1.1); S.clap(t, 0.9); }
+    if (sec === 'drop' && (s === 7 || s === 15)) S.snare(t, 0.35);
+    if (playing) S.hat(t, sec === 'drop' && s % 4 === 2, s % 2 === 0 ? 0.8 : 0.4 + x * 0.3);
+    if (playing && s === 0 && lb % 2 === 0) S.metal(t, 0.8);
+    if (s === 0 && lb % 4 === 0 && playing) S.crash(t, 1.1);
+    if (sec === 'break') {
+      if (s === 0) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, 1.4, 1000);
+      if (lb === 1 && s === 0) S.siren(t, ch.bass + 36, sd * 32, 1);
+      if (lb === 2 && s === 0) S.riser(t, sd * 32, 1.2);
+      if (lb === 3) S.snare(t, 0.2 + (s / 16) * 0.9);
+      if (s === 0) S.bass(t, ch.bass, sd * 15.5, 250, 0.5, true);
+      return;
+    }
+    if (has(this.bassPat, s)) S.bass(t, ch.bass + (s === 6 || s === 14 ? 12 : 0), sd * 0.9, sec === 'drop' ? 1400 : 1000, 1, true);
+    if (s === 0) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, 0.6, 1100);
+    if (sec === 'A' ? s % 2 === 0 : true) {
+      const seq = [0, 2, 1, 3, 0, 2, 1, 3, 2, 0, 3, 1, 2, 0, 3, 1];
+      S.pluck(t, ch.tones[seq[s]] + 12, sd * (sec === 'A' ? 1.5 : 0.7), 0.6, 'sawtooth');
+    }
+    if (sec === 'drop' && s % 8 === 6) S.stab(t, ch.tones.slice(0, 3), sd * 1.5, 1.2, 2000);
+    const L = sec === 'B' ? this.leadB : sec === 'drop' ? this.leadDrop : null;
+    if (L) {
+      const ev = L[lb % 8].get(s);
+      if (ev) {
+        if (sec === 'drop') S.supersaw(t, ev[0], ev[1] * sd * 0.95, 1.1, 3600);
+        else S.lead(t, ev[0], ev[1] * sd * 0.95, 1.1, 2800);
+      }
+    }
+  },
+};
+
+// --- WELLE 15–19: "Overclock" – Fis-Moll, 160 BPM, mit Tonart-Rückung im zweiten Drop ---
+const OVERCLOCK = {
+  name: 'Overclock',
+  bpm: 160,
+  form: [['intro', 4], ['A', 8], ['B', 8], ['break', 4], ['drop', 8], ['drop2', 8]],
+  loopFrom: 1,
+  transpose: (sec) => (sec === 'drop2' ? 1 : 0),
+  chords: [
+    chord('F#1', ['F#4', 'A4', 'C#5', 'F#5']),
+    chord('D2', ['F#4', 'A4', 'D5', 'F#5']),
+    chord('E2', ['E4', 'G#4', 'B4', 'E5']),
+    chord('C#2', ['F4', 'G#4', 'C#5', 'F5']),
+  ],
+  leadB: mel([
+    'C#6:0:4 F#6:4:4 E6:8:2 C#6:10:2 A5:12:4',
+    'D6:0:4 F#6:4:4 A6:8:4 F#6:12:4',
+    'E6:0:4 G#6:4:4 B6:8:4 G#6:12:2 E6:14:2',
+    'F6:0:6 G#6:6:2 C#7:8:8',
+    'C#6:0:4 F#6:4:4 E6:8:2 C#6:10:2 A5:12:4',
+    'D6:0:2 E6:2:2 F#6:4:4 A6:8:4 D7:12:4',
+    'B6:0:4 G#6:4:2 E6:6:2 B5:8:4 E6:12:4',
+    'F6:0:4 G#6:4:4 C#7:8:8',
+  ]),
+  leadDrop: mel([
+    'F#6:0:2 C#6:2:2 A5:4:2 C#6:6:2 F#6:8:2 A6:10:2 G#6:12:2 F#6:14:2',
+    'F#6:0:2 D6:2:2 A5:4:2 D6:6:2 F#6:8:2 A6:10:2 D7:12:4',
+    'E6:0:2 B5:2:2 G#5:4:2 B5:6:2 E6:8:2 G#6:10:2 B6:12:4',
+    'C#7:0:4 B6:4:2 G#6:6:2 F6:8:4 G#6:12:4',
+    'F#6:0:2 C#6:2:2 A5:4:2 C#6:6:2 F#6:8:2 A6:10:2 G#6:12:2 F#6:14:2',
+    'F#6:0:2 D6:2:2 A5:4:2 D6:6:2 F#6:8:2 A6:10:2 D7:12:4',
+    'E6:0:2 B5:2:2 G#5:4:2 B5:6:2 E6:8:2 G#6:10:2 B6:12:4',
+    'C#7:0:8 F6:8:4 G#6:12:4',
+  ]),
+  step(e) {
+    const { S, sec, lb, s, t, ch, sd, x, tr } = e;
+    const drop = sec === 'drop' || sec === 'drop2';
+    const playing = sec !== 'break';
+    if (playing && (s % 4 === 0 || (drop && lb % 2 === 1 && (s === 14 || s === 15)))) S.kick(t, 1, 1.1);
+    if (sec !== 'intro' && playing && (s === 4 || s === 12)) { S.snare(t, 1); S.clap(t, 0.9); }
+    if (sec === 'intro' && lb >= 1 && s % 2 === 0) S.snare(t, lb === 3 ? 0.2 + (s / 16) * 0.8 : 0);
+    if (sec === 'B' && lb % 4 === 3 && s >= 12) S.snare(t, 0.5 + (s - 12) * 0.12);
+    if (playing) S.hat(t, drop && s % 4 === 2, s % 2 === 0 ? 0.85 : 0.5 + x * 0.3);
+    if (playing && s === 0 && (lb % 4 === 0 || (drop && lb % 2 === 0))) S.crash(t, 1);
+    if (sec === 'break') {
+      if (s === 0) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, 1.4, 2000);
+      if (lb === 0 && s === 0) S.siren(t, ch.bass + 36, sd * 32, 1.1);
+      if (lb === 2 && s === 0) S.riser(t, sd * 32, 1.3);
+      if (lb >= 2) S.snare(t, lb === 2 ? (s % 2 === 0 ? 0.35 : 0) : 0.25 + (s / 16) * 0.85);
+      if (lb === 3 && s >= 12) S.tom(t, 240 - (s - 12) * 30, 1);
+      if (s === 0) S.bass(t, ch.bass, sd * 15.5, 300, 0.45);
+      const seq = [0, 1, 2, 3, 2, 1, 2, 3];
+      S.pluck(t, ch.tones[seq[s % 8]] + 12, sd * 0.7, 1);
+      return;
+    }
+    // Rasende 16tel-Bässe mit Oktavsprung auf jeder zweiten Note
+    const cut = sec === 'intro' ? 500 + lb * 350 : drop ? 2800 : 1900;
+    S.bass(t, ch.bass + (s % 2 === 1 ? 12 : 0), sd * 0.8, cut, s % 4 === 0 ? 1 : 0.8);
+    if ((sec === 'A' || drop) && s % 4 === 2) S.stab(t, ch.tones.slice(0, 3), sd * 0.9, drop ? 1.3 : 1);
+    if (s === 0 && (sec === 'B' || drop)) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, 0.7, 2000);
+    if (sec !== 'intro') {
+      const seq = [0, 1, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 4, 3];
+      const i = seq[s];
+      const n = i >= 4 ? ch.tones[i - 3] + 12 : ch.tones[i];
+      S.pluck(t, n + 12, sd * 0.6, drop ? 0.55 : 0.7);
+    }
+    const L = sec === 'B' ? this.leadB : drop ? this.leadDrop : null;
+    if (L) {
+      const ev = L[lb % 8].get(s);
+      if (ev) {
+        if (drop) S.supersaw(t, ev[0] + tr, ev[1] * sd * 0.95, 1.15, 4600);
+        else S.lead(t, ev[0] + tr, ev[1] * sd * 0.95, 1.05);
+      }
+    }
+  },
+};
+
+// --- WELLE 20: "Kernschmelze" – Endboss, H-Moll phrygisch, 172 BPM ---
+const FINAL = {
+  name: 'Kernschmelze',
+  bpm: 172,
+  form: [['intro', 4], ['half', 8], ['B', 8], ['break', 4], ['drop', 8]],
+  loopFrom: 1,
+  chords: [
+    chord('B1', ['B3', 'D4', 'F#4', 'B4']),
+    chord('G1', ['B3', 'D4', 'G4', 'B4']),
+    chord('C2', ['C4', 'E4', 'G4', 'C5']),
+    chord('F#1', ['A#3', 'C#4', 'F#4', 'A#4']),
+  ],
+  lead: mel([
+    'F#5:0:4 B5:4:4 C6:8:4 B5:12:2 A#5:14:2',
+    'B5:0:4 D6:4:4 G6:8:4 F#6:12:4',
+    'E6:0:4 C6:4:4 G5:8:4 C6:12:4',
+    'C#6:0:4 A#5:4:4 F#5:8:4 A#5:12:4',
+    'B5:0:2 D6:2:2 F#6:4:4 B6:8:4 A#6:12:4',
+    'G6:0:4 F#6:4:2 D6:6:2 B5:8:4 D6:12:4',
+    'C7:0:4 B6:4:2 G6:6:2 E6:8:4 C6:12:4',
+    'C#7:0:8 A#6:8:4 F#6:12:4',
+  ]),
+  step(e) {
+    const { S, sec, lb, s, t, ch, sd, x } = e;
+    if (sec === 'intro') {
+      // Herzschlag + Alarm
+      if (s === 0 || s === 3) S.kick(t, s === 0 ? 0.9 : 0.6, 0.8);
+      if (s === 0 && lb % 2 === 0) S.alarm(t, ch.bass + 36, sd * 14, 1.2);
+      if (s === 0) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, 1.2, 900);
+      if (s === 0) S.metal(t, 1.1);
+      if (lb === 3) S.snare(t, 0.2 + (s / 16) * 0.9);
+      return;
+    }
+    if (sec === 'break') {
+      if (s === 0) S.pad(t, ch.tones.slice(0, 3), sd * 16, 1.5, 1500);
+      if (s === 0 && lb === 0) S.siren(t, ch.bass + 36, sd * 32, 1.2);
+      if (s === 0 && lb === 2) S.riser(t, sd * 32, 1.5);
+      if (lb >= 2) S.snare(t, lb === 2 ? (s % 2 === 0 ? 0.4 : 0) : 0.3 + (s / 16) * 0.9);
+      if (lb >= 1 && s % 4 === 0) S.kick(t, 0.5 + lb * 0.15, 0.9);
+      const ev = this.lead[(lb + 4) % 8].get(s);
+      if (ev) S.lead(t, ev[0], ev[1] * sd * 0.95, 0.9, 2200);
+      return;
+    }
+    if (sec === 'half') {
+      // Halbes Tempo: riesig und schwer
+      if (s === 0 || s === 10 || (s === 14 && lb % 2 === 1)) S.kick(t, 1.1, 1.2);
+      if (s === 8) { S.snare(t, 1.2); S.clap(t, 1); S.metal(t, 0.6); }
+      if (s % 2 === 0) S.hat(t, s === 6 || s === 14, 0.6 + x * 0.3);
+      if (s === 0 && lb % 4 === 0) S.crash(t, 1.2);
+      if (s === 0 || s === 3 || s === 6 || s === 10 || s === 12) S.bass(t, ch.bass + (s === 6 ? 12 : 0), sd * (s === 12 ? 3.5 : 2.5), 900, 1.1, true);
+      if (s === 0) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, 0.8, 1200);
+      if (s % 2 === 0) {
+        const seq = [0, 1, 2, 3, 2, 1, 2, 3];
+        S.pluck(t, ch.tones[seq[(s / 2) % 8]] + 12, sd * 1.4, 0.6, 'sawtooth');
+      }
+      return;
+    }
+    // B und Drop: volle Geschwindigkeit, alles was geht
+    const drop = sec === 'drop';
+    if (s % 4 === 0 || (drop && (s === 14 || s === 15))) S.kick(t, 1.1, 1.2);
+    if (s === 4 || s === 12) { S.snare(t, 1.2); S.clap(t, 1); }
+    if (drop && (s === 7 || s === 10 || s === 15)) S.snare(t, 0.4);
+    S.hat(t, s % 4 === 2, s % 2 === 0 ? 0.9 : 0.55);
+    if (s === 0 && (lb % 4 === 0 || drop)) S.crash(t, 1.2);
+    if (s === 0 && lb % 2 === 1) S.metal(t, 0.7);
+    S.bass(t, ch.bass + (s % 4 === 2 ? 12 : 0), sd * 0.85, drop ? 1600 : 1200, 1, true);
+    if (s % 4 === 2) S.stab(t, ch.tones.slice(0, 3), sd * 0.9, 1.3, 2400);
+    if (s === 0) S.pad(t, ch.tones.slice(0, 3).map((n) => n - 12), sd * 16, 0.8, 1800);
+    const seq = [0, 1, 2, 3, 2, 1, 2, 3, 0, 2, 1, 3, 2, 3, 1, 2];
+    S.pluck(t, ch.tones[seq[s]] + 24, sd * 0.6, 0.55);
+    const ev = this.lead[lb % 8].get(s);
+    if (ev) S.supersaw(t, ev[0] + (drop ? 12 : 0), ev[1] * sd * 0.95, drop ? 1.2 : 1.05, drop ? 4800 : 3800);
+  },
+};
+
+export const SONGS = {
+  battle: BATTLE, hyper: HYPER, blackout: BLACKOUT, overclock: OVERCLOCK,
+  boss: BOSS, final: FINAL, menu: MENU, shop: SHOP,
+};
 
 // ===================== Sequencer =====================
 export const music = {
@@ -687,9 +1049,11 @@ export const music = {
       const swing = song.swing && this.step % 2 === 1 ? sd * song.swing : 0;
       if (this.enabled) {
         const [sec, lb] = this.section();
-        const ch = song.chords[this.bar % song.chords.length];
+        let ch = song.chords[this.bar % song.chords.length];
+        const tr = song.transpose ? song.transpose(sec) : 0;
+        if (tr) ch = { ...ch, bass: ch.bass + tr, tones: ch.tones.map((n) => n + tr) };
         try {
-          song.step({ S: this.S, sec, lb, s: this.step, t: this.nextTime + swing, ch, sd, x: this.intensity });
+          song.step({ S: this.S, sec, lb, s: this.step, t: this.nextTime + swing, ch, sd, x: this.intensity, tr });
         } catch (_) { /* ein fehlerhafter Ton darf die Musik nicht stoppen */ }
       }
       this.nextTime += sd;
