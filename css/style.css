@@ -208,6 +208,7 @@ h3 {
 .logo-sub { margin-top: 12px; color: var(--muted); font-family: Rajdhani, sans-serif; font-size: 15px; letter-spacing: 1px; }
 @keyframes flicker { 0%, 92%, 96%, 100% { opacity: 1; } 94% { opacity: 0.55; } }
 .highscores { margin-top: 26px; font-size: 14px; color: var(--muted); line-height: 1.6; }
+.version { margin-top: 18px; font-size: 11px; color: rgba(138, 160, 192, 0.5); letter-spacing: 1px; }
 .highscores b { color: var(--yellow); font-family: Orbitron, sans-serif; font-size: 12px; }
 
 /* ---------- Charakterauswahl ---------- */

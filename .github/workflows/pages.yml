@@ -30,6 +30,13 @@ jobs:
           mkdir -p _site
           cp -r index.html manifest.webmanifest css js icons _site/
           touch _site/.nojekyll
+          # Version + Cache-Busting: jede Datei bekommt ?v=<commit> in der URL
+          V="${GITHUB_SHA::8}"
+          echo "{\"version\":\"$V\"}" > _site/version.json
+          sed -i "s|name=\"app-version\" content=\"dev\"|name=\"app-version\" content=\"$V\"|" _site/index.html
+          sed -i -E "s#(href|src)=\"(css/style\.css|js/main\.js|manifest\.webmanifest)\"#\1=\"\2?v=$V\"#g" _site/index.html
+          sed -i -E "s#from '(\./[A-Za-z]+\.js)'#from '\1?v=$V'#g" _site/js/*.js
+          grep -q "content=\"$V\"" _site/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

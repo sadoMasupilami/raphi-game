@@ -11,6 +11,8 @@ import { weaponIconURL } from './sprites.js';
 
 const $ = (s) => document.querySelector(s);
 const STORE_KEY = 'neonnexus.v1';
+// Wird beim Deployment durch die Commit-ID ersetzt (lokal: 'dev')
+const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content || 'dev';
 
 // ================= Speicher =================
 const store = loadStore();
@@ -55,6 +57,7 @@ document.addEventListener('visibilitychange', () => {
     audio.suspend();
   } else {
     audio.resume();
+    checkForUpdate();
   }
 });
 // Doppeltipp-Zoom und Kontextmenü verhindern
@@ -177,6 +180,7 @@ function renderHighscores() {
 
 function showMenu() {
   game = null;
+  if (updatePending) { applyUpdate(); return; }
   $('#hud').classList.add('hidden');
   renderHighscores();
   show('menu');
@@ -626,7 +630,11 @@ function showGameOver(win, quit = false) {
   show('over');
 }
 
-$('#btn-again').onclick = () => { tryFullscreen(); startGame(); };
+$('#btn-again').onclick = () => {
+  if (updatePending) { applyUpdate(); return; }
+  tryFullscreen();
+  startGame();
+};
 $('#btn-menu').onclick = () => showMenu();
 $('#btn-endless').onclick = () => {
   if (!game) return;
@@ -638,6 +646,43 @@ $('#btn-endless').onclick = () => {
   $('#shop-sub').textContent = 'Endlos-Modus: Wie lange hältst du durch?';
   show('shop');
 };
+
+// ================= Updates =================
+// GitHub Pages cached Dateien bis zu 10 Minuten. Deshalb fragen wir version.json
+// am Cache vorbei ab und laden bei einer neuen Version mit neuer URL neu.
+let updatePending = null;
+
+async function checkForUpdate() {
+  if (APP_VERSION === 'dev' || updatePending) return;
+  try {
+    const res = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const { version } = await res.json();
+    if (!version || version === APP_VERSION) return;
+    updatePending = version;
+    if (!game || game.state === 'over') {
+      if (!game) applyUpdate();
+    } else {
+      toast('⬆ Neue Version verfügbar – wird nach der Runde geladen', '#ffe94a');
+    }
+  } catch (_) { /* offline o. ä. */ }
+}
+
+function applyUpdate() {
+  const v = updatePending;
+  try {
+    // Endlosschleife verhindern, falls doch noch eine alte Seite ausgeliefert wird
+    if (sessionStorage.getItem('neonnexus.reloadedFor') === v) return;
+    sessionStorage.setItem('neonnexus.reloadedFor', v);
+  } catch (_) { /* egal */ }
+  const url = new URL(location.href);
+  url.searchParams.set('v', v);
+  location.replace(url.toString());
+}
+
+$('#version').textContent = `Version ${APP_VERSION}`;
+setInterval(checkForUpdate, 60000);
+checkForUpdate();
 
 // ================= HUD =================
 const hudCache = {};

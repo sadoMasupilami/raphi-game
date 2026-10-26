@@ -28,6 +28,11 @@ python3 -m http.server 8000
 Jeder Push auf `main` wird per GitHub Actions (`.github/workflows/pages.yml`) auf GitHub Pages veröffentlicht.
 Falls nötig, unter **Settings → Pages → Source** einmalig „GitHub Actions“ auswählen.
 
+**Automatische Updates:** Beim Deployment bekommt jede Datei die Commit-ID als `?v=…` angehängt, und es wird eine `version.json` erzeugt.
+Das Spiel prüft sie beim Start, alle 60 Sekunden und beim Zurückkehren in die App, jeweils am Cache vorbei.
+Gibt es eine neue Version, lädt das Spiel sofort neu, wenn man im Menü ist. Während einer Runde erscheint nur ein Hinweis, und der Neustart folgt nach der Runde.
+So muss man nicht die 10 Minuten abwarten, die GitHub Pages Dateien im Cache hält. Die aktuelle Version steht unten im Hauptmenü.
+
 ## Struktur
 
 | Datei | Inhalt |
