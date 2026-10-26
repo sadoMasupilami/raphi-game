@@ -44,6 +44,7 @@ export class Game {
     this.dmgMode = 'all'; // 'all' | 'crit' | 'off'
     this.shake = 0;
     this.uid = 1;
+    this.reactionCount = 0;
 
     this.bonus = {};
     this.items = [];
@@ -83,6 +84,11 @@ export class Game {
     for (const id of this.char.extraWeapons || []) this.addWeapon(id, 0);
     this.recalc();
     this.player.hp = this.stats.maxHp;
+  }
+
+  // Ereignis an Fortschritt/Tutorial melden
+  emit(type, data) {
+    if (this.hooks.event) this.hooks.event(type, data, this);
   }
 
   // ================= Werte =================
@@ -131,6 +137,7 @@ export class Game {
   // ================= Waffen & Items =================
   addWeapon(id, tier) {
     this.weapons.push({ uid: this.uid++, id, tier, cd: 0.3 + Math.random() * 0.3, angle: -Math.PI / 2, x: 0, y: 0, anim: null });
+    this.emit('weapon', { id, tier });
   }
 
   canTakeWeapon(id, tier) {
@@ -148,6 +155,7 @@ export class Game {
     const idx = this.weapons.findIndex((w) => w.id === id && w.tier === tier);
     if (idx >= 0 && tier < 3) {
       this.weapons[idx].tier = tier + 1;
+      this.emit('weapon', { id, tier: tier + 1 });
       return 'merged';
     }
     return false;
@@ -163,6 +171,7 @@ export class Game {
     const other = this.mergeTarget(index);
     if (other < 0) return false;
     this.weapons[index].tier++;
+    this.emit('weapon', { id: this.weapons[index].id, tier: this.weapons[index].tier });
     this.weapons.splice(other, 1);
     return true;
   }
@@ -184,6 +193,7 @@ export class Game {
   itemCount(id) { return this.items.filter((i) => i === id).length; }
   addItem(id) {
     this.items.push(id);
+    this.emit('item', id);
     const hpBefore = this.stats.maxHp;
     this.recalc();
     if (this.stats.maxHp > hpBefore) this.player.hp += this.stats.maxHp - hpBefore;
@@ -481,6 +491,7 @@ export class Game {
       this.hooks.boss(e);
     }
     this.enemies.push(e);
+    this.emit('enemy', type);
     return e;
   }
 
@@ -1163,6 +1174,8 @@ export class Game {
       this.addText(x, y - e.r - 18, R.name, R.color, 14, 0.9);
     }
     audio.play('reaction');
+    this.reactionCount++;
+    this.emit('reaction', key);
     switch (key) {
       case 'fire+ice': {
         for (const t of this.query(x, y, 85)) this.damage(t, rd * 1.4, R.color);
@@ -1288,6 +1301,7 @@ export class Game {
       audio.play('boom');
       for (let i = 0; i < 3; i++) this.dropPickup(e.x, e.y, 'crate', 0);
       this.score += e.type === 'omega' ? 5000 : 1500;
+      this.emit('boss', e.type);
       if (e.type === 'omega' && !this.endless) {
         // Sieg!
         for (const o of this.enemies) if (!o.dead) { o.dead = true; this.burst(o.x, o.y, o.def.color, 6, 160); }

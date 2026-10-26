@@ -54,6 +54,7 @@
       </div>
       <div class="menu-buttons">
         <button class="btn primary big" id="btn-play">▶ SPIELEN</button>
+        <button class="btn" id="btn-codex">📖 LOGBUCH &amp; ERFOLGE</button>
         <button class="btn" id="btn-howto">ANLEITUNG</button>
         <button class="btn" id="btn-settings">EINSTELLUNGEN</button>
       </div>
@@ -166,6 +167,17 @@
     </div>
   </section>
 
+  <!-- Logbuch -->
+  <section id="screen-codex" class="screen hidden overlay">
+    <div class="panel wide">
+      <h2>LOGBUCH</h2>
+      <div class="codex-totals" id="codex-totals"></div>
+      <div class="tabs" id="codex-tabs"></div>
+      <div class="codex" id="codex-body"></div>
+      <button class="btn primary" id="btn-codex-back">ZURÜCK</button>
+    </div>
+  </section>
+
   <!-- Spielende -->
   <section id="screen-over" class="screen hidden dim">
     <div class="panel narrow">
@@ -181,6 +193,7 @@
 
   <!-- Drehen-Hinweis & Toasts -->
   <div id="toasts"></div>
+  <div id="hint" class="hidden"></div>
 
   <script type="module" src="js/main.js"></script>
 </body>

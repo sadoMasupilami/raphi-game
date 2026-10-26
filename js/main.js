@@ -1,6 +1,6 @@
 // Einstieg: Menüs, HUD, Shop, Level-Up und Spielschleife
 import {
-  ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, STAT_DEFS, SPECIAL_DEFS,
+  ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, ENEMIES, STAT_DEFS, SPECIAL_DEFS,
   BASE_STATS, WAVE_MODS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
 } from './data.js';
 import { Game } from './game.js';
@@ -8,6 +8,7 @@ import { Renderer } from './render.js';
 import { input } from './input.js';
 import { audio } from './audio.js';
 import { weaponIconURL } from './sprites.js';
+import { ACHIEVEMENTS, Progress, normalizeProgress, isUnlocked } from './progress.js';
 
 const $ = (s) => document.querySelector(s);
 const STORE_KEY = 'neonnexus.v1';
@@ -22,18 +23,20 @@ function loadStore() {
     highscores: {},
     lastChar: 'vex',
     lastDiff: 'normal',
+    progress: null,
+    tutorial: {},
   };
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return def;
+    if (!raw) return { ...def, progress: normalizeProgress(null) };
     const data = JSON.parse(raw);
     const settings = { ...def.settings, ...(data.settings || {}) };
     // Alte Einstellung (an/aus) übernehmen
     if (data.settings && data.settings.dmgNumbers === false && !data.settings.dmgMode) settings.dmgMode = 'off';
     delete settings.dmgNumbers;
-    return { ...def, ...data, settings };
+    return { ...def, ...data, settings, progress: normalizeProgress(data.progress), tutorial: data.tutorial || {} };
   } catch (_) {
-    return def;
+    return { ...def, progress: normalizeProgress(null) };
   }
 }
 function saveStore() {
@@ -47,6 +50,8 @@ input.attach(canvas);
 audio.sfx = store.settings.sfx;
 audio.music = store.settings.music;
 renderer.shakeOn = store.settings.shake;
+
+const progress = new Progress(store, saveStore, (t, c) => toast(t, c));
 
 let game = null;
 let selectedChar = store.lastChar;
@@ -76,7 +81,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ================= Screens =================
-const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over'];
+const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over', 'codex'];
 function show(name) {
   for (const s of SCREENS) $(`#screen-${s}`).classList.toggle('hidden', s !== name);
 }
@@ -197,14 +202,26 @@ $('#btn-play').onclick = () => {
   show('select');
 };
 $('#btn-howto').onclick = () => { renderHowto(); openOverlay('howto'); };
+$('#btn-codex').onclick = () => { renderCodex(); openOverlay('codex'); };
+$('#btn-codex-back').onclick = () => closeOverlay('codex');
 $('#btn-howto-back').onclick = () => closeOverlay('howto');
 $('#btn-settings').onclick = () => { renderSettings(); openOverlay('settings'); };
 $('#btn-settings-back').onclick = () => closeOverlay('settings');
 $('#btn-select-back').onclick = () => showMenu();
 
 function renderSelect() {
+  if (!isUnlocked(store.progress, selectedChar)) selectedChar = 'vex';
   $('#char-grid').innerHTML = CHARACTERS.map((c) => {
     const wd = WEAPONS[c.weapon];
+    if (!isUnlocked(store.progress, c.id)) {
+      const ach = ACHIEVEMENTS.find((a) => a.unlocks === c.id);
+      return `<div class="char-card locked" style="--c:${c.color}">
+        <div class="char-avatar"></div>
+        <div class="char-name">🔒 ${c.name}</div>
+        <div class="char-title">${c.title}</div>
+        <div class="lock-info">Freischalten:<br>${ach.desc}</div>
+      </div>`;
+    }
     const perks = c.perks.map((p) => `<li class="${p.startsWith('−') || p.startsWith('⚠') ? 'neg' : 'pos'}">${p}</li>`).join('');
     return `<div class="char-card ${c.id === selectedChar ? 'selected' : ''}" data-id="${c.id}" style="--c:${c.color}">
       <div class="char-avatar"></div>
@@ -214,7 +231,7 @@ function renderSelect() {
       <ul class="char-perks">${perks}</ul>
     </div>`;
   }).join('');
-  $('#char-grid').querySelectorAll('.char-card').forEach((el) => {
+  $('#char-grid').querySelectorAll('.char-card:not(.locked)').forEach((el) => {
     el.onclick = () => {
       selectedChar = el.dataset.id;
       audio.play('click');
@@ -247,6 +264,10 @@ const hooks = {
     if (e) $('#boss-name').textContent = e.def.name;
   },
   vibrate,
+  event: (type, data, g) => {
+    progress.event(g, type, data);
+    if (type === 'reaction') tut.show('reaction', '✨ <b>REAKTION!</b> Zwei verschiedene Elemente auf einem Gegner lösen Spezialeffekte aus.', 4500);
+  },
 };
 
 function startGame() {
@@ -360,6 +381,7 @@ function shopAfterWave(w) {
 
 function afterWave() {
   if (!game) return;
+  progress.waveEnd(game);
   if (game.pendingLevels > 0) {
     showLevelUp(() => afterWave());
     return;
@@ -373,6 +395,12 @@ function afterWave() {
     game.openShop();
     renderShop(info);
     show('shop');
+    if (!store.tutorial.shop) {
+      store.tutorial.shop = true;
+      saveStore();
+      toast('Tipp: Tippe auf eine Waffe unten, um zwei gleiche zu verschmelzen', '#ffe94a');
+      setTimeout(() => toast('Mit 🔒 behältst du ein Angebot für den nächsten Shop', '#ffe94a'), 1400);
+    }
   } else {
     $('#wave-done-title').textContent = `WELLE ${game.wave} GESCHAFFT`;
     $('#wave-summary').innerHTML = `
@@ -581,8 +609,13 @@ function renderSettings() {
       return `<button class="toggle choice" data-k="${k}"><span>${label}</span><span class="val">${cur[1]} ›</span></button>`;
     }
     return `<button class="toggle ${store.settings[k] ? 'on' : ''}" data-k="${k}"><span>${label}</span><span class="sw"></span></button>`;
-  }).join('');
-  $('#settings-list').querySelectorAll('.toggle').forEach((el) => {
+  }).join('') + `<button class="toggle choice" id="btn-reset-tut"><span>Tutorial zurücksetzen</span><span class="val">↺</span></button>`;
+  $('#btn-reset-tut').onclick = () => {
+    store.tutorial = {};
+    saveStore();
+    toast('Das Tutorial startet in der nächsten Runde neu', '#ffe94a');
+  };
+  $('#settings-list').querySelectorAll('.toggle[data-k]').forEach((el) => {
     el.onclick = () => {
       const k = el.dataset.k;
       const choices = optMap[k][2];
@@ -636,6 +669,7 @@ function showGameOver(win, quit = false) {
   if (!game) return;
   const g = game;
   if (win && !g.endless) g.score += 10000;
+  progress.runEnd(g, win);
   const key = g.diffId;
   const prev = store.highscores[key];
   const reached = g.wave;
@@ -678,6 +712,111 @@ $('#btn-endless').onclick = () => {
   renderShop({ collected: 0, harvest: 0 });
   $('#shop-sub').textContent = 'Endlos-Modus: Wie lange hältst du durch?';
   show('shop');
+};
+
+// ================= Logbuch =================
+const ENEMY_DESC = {
+  drone: 'Fliegt stur auf dich zu.',
+  runner: 'Schnell, aber zerbrechlich.',
+  shooter: 'Hält Abstand und schießt.',
+  tank: 'Langsam und sehr robust.',
+  bomber: 'Explodiert in deiner Nähe – Abstand halten!',
+  splitter: 'Zerfällt beim Tod in drei Splitter.',
+  mini: 'Kleiner, flinker Splitter.',
+  shieldbot: 'Energieschild lädt sich auf. Blitz zerstört es doppelt so schnell.',
+  phaser: 'Teleportiert sich neben dich. Achte auf den Kreis!',
+  turret: 'Bewegt sich nicht, feuert aber gezielte Laser.',
+  healer: 'Heilt Gegner in der Nähe. Zuerst ausschalten!',
+  guardian: 'Zwischenboss der Welle 10: Kugelringe und Sprint-Angriffe.',
+  omega: 'Endboss der Welle 20. Wird bei halber Energie wütend.',
+};
+let codexTab = 'erfolge';
+function renderCodex() {
+  const pr = store.progress;
+  const t = pr.totals;
+  $('#codex-totals').innerHTML = `<div><b>${t.runs}</b>Runden</div><div><b>${t.wins}</b>Siege</div><div><b>${t.kills.toLocaleString('de-DE')}</b>Besiegt</div><div><b>${t.reactions.toLocaleString('de-DE')}</b>Reaktionen</div>`;
+  const tabs = [['erfolge', '🏆 Erfolge'], ['waffen', '🔫 Waffen'], ['items', '🎒 Items'], ['reaktionen', '🧪 Reaktionen'], ['gegner', '👾 Gegner']];
+  $('#codex-tabs').innerHTML = tabs.map(([k, l]) => `<button class="btn ${k === codexTab ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('');
+  $('#codex-tabs').querySelectorAll('[data-tab]').forEach((el) => { el.onclick = () => { codexTab = el.dataset.tab; renderCodex(); }; });
+  const entry = (unlocked, icon, title, desc, color) => `<div class="codex-entry ${unlocked ? '' : 'locked'}" style="--tc:${color || 'rgba(255,255,255,0.15)'}">
+      <div class="ci">${icon}</div><div><div class="ct">${title}</div><div class="cd">${desc}</div></div></div>`;
+  let html = '';
+  if (codexTab === 'erfolge') {
+    const n = ACHIEVEMENTS.filter((a) => pr.achievements[a.id]).length;
+    html = `<p class="sub" style="grid-column:1/-1">${n} von ${ACHIEVEMENTS.length} Erfolgen</p>` + ACHIEVEMENTS.map((a) => {
+      const ok = !!pr.achievements[a.id];
+      const unlock = a.unlocks ? `<br>🔓 Schaltet <b>${CHARACTERS.find((c) => c.id === a.unlocks).name}</b> frei` : '';
+      return entry(ok, a.icon, a.name, a.desc + unlock, ok ? '#ffd740' : null);
+    }).join('');
+  } else if (codexTab === 'waffen') {
+    html = Object.entries(WEAPONS).map(([id, d]) => {
+      const ok = pr.seen.weapons[id];
+      const col = ELEMENTS[d.elem].color;
+      return ok
+        ? entry(true, `<img src="${weaponIconURL(id, col)}" alt="">`, d.name, `${ELEMENTS[d.elem].icon} ${d.type === 'melee' ? 'Nahkampf' : 'Fernkampf'} · ${d.desc}`, col)
+        : entry(false, '❔', '???', 'Noch nicht gefunden.');
+    }).join('');
+  } else if (codexTab === 'items') {
+    html = Object.entries(ITEMS).map(([id, it]) => (pr.seen.items[id]
+      ? entry(true, it.icon, it.name, itemDesc(id), TIER_COLORS[it.tier])
+      : entry(false, '❔', '???', 'Noch nicht gefunden.'))).join('');
+  } else if (codexTab === 'reaktionen') {
+    html = Object.entries(REACTIONS).map(([key, r]) => {
+      const [a, b] = key.split('+');
+      const cnt = pr.seen.reactions[key] || 0;
+      const icon = `${ELEMENTS[a].icon}${ELEMENTS[b].icon}`;
+      return cnt ? entry(true, icon, r.name, `${r.desc}<br>${cnt.toLocaleString('de-DE')}× ausgelöst`, r.color)
+        : entry(false, icon, '???', `Kombiniere ${ELEMENTS[a].name} und ${ELEMENTS[b].name}.`);
+    }).join('');
+  } else {
+    html = Object.entries(ENEMIES).map(([id, d]) => (pr.seen.enemies[id]
+      ? entry(true, `<span style="color:${d.color}">◆</span>`, d.name, ENEMY_DESC[id] || '', d.color)
+      : entry(false, '❔', '???', 'Noch nicht begegnet.'))).join('');
+  }
+  $('#codex-body').innerHTML = html;
+}
+
+// ================= Tutorial =================
+const tut = {
+  cur: null,
+  until: 0,
+  sx: 0,
+  sy: 0,
+  done(k) { return !!store.tutorial[k]; },
+  show(k, html, dur = 0) {
+    if (this.done(k) || this.cur) return;
+    this.cur = k;
+    this.until = dur ? performance.now() + dur : 0;
+    if (game) { this.sx = game.player.x; this.sy = game.player.y; }
+    $('#hint').innerHTML = html;
+  },
+  finish() {
+    if (!this.cur) return;
+    store.tutorial[this.cur] = true;
+    saveStore();
+    this.cur = null;
+    $('#hint').classList.add('hidden');
+  },
+  update() {
+    const el = $('#hint');
+    const playing = game && game.state === 'play';
+    if (!playing) {
+      if (!el.classList.contains('hidden')) el.classList.add('hidden');
+      return;
+    }
+    if (!this.cur) {
+      if (!this.done('move')) this.show('move', '👆 <b>Leg den Daumen irgendwo hin und zieh</b>, um zu laufen.');
+      else if (!this.done('auto') && game.time > 1) this.show('auto', '🔫 Deine Waffen zielen und feuern <b>automatisch</b>!', 3500);
+      else if (!this.done('chips') && game.pickups.length && game.time > 4) this.show('chips', '💠 Sammle <b>Daten-Chips</b> für Erfahrung und Credits.', 4000);
+      else if (!this.done('dash') && game.time > 9) this.show('dash', '💨 Tippe auf <b>DASH</b>, um blitzschnell auszuweichen!');
+    }
+    if (!this.cur) return;
+    el.classList.remove('hidden');
+    const p = game.player;
+    if (this.until && performance.now() > this.until) this.finish();
+    else if (this.cur === 'move' && Math.hypot(p.x - this.sx, p.y - this.sy) > 90) this.finish();
+    else if (this.cur === 'dash' && p.dashCd > 0) this.finish();
+  },
 };
 
 // ================= Updates =================
@@ -772,6 +911,7 @@ function frame(now) {
     renderer.updateCamera(game);
     renderer.draw(game);
     updateHUD();
+    tut.update();
   } else {
     menuT += dt;
     renderer.drawBackdrop(menuT);
