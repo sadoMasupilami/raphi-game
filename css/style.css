@@ -108,6 +108,31 @@ h2, h3, .btn, .logo, #wave-label, #wave-timer, .bar span, .credits, .boss-name {
 }
 .icon-btn:active { transform: scale(0.94); }
 
+/* Dash-Knopf (unten, mit Abklingzeit-Anzeige) */
+.dash-btn {
+  --cd: 0;
+  position: fixed;
+  right: calc(var(--safe-r) + 22px);
+  bottom: calc(var(--safe-b) + 28px);
+  width: 78px; height: 78px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 240, 255, 0.4);
+  background:
+    conic-gradient(rgba(4, 5, 12, 0.75) calc(var(--cd) * 360deg), transparent 0),
+    radial-gradient(circle, rgba(0, 240, 255, 0.28), rgba(0, 140, 255, 0.08));
+  color: #fff;
+  font-family: Orbitron, sans-serif;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 1px;
+  pointer-events: auto;
+  touch-action: none;
+  opacity: 0.75;
+}
+.dash-btn.left { right: auto; left: calc(var(--safe-l) + 22px); }
+.dash-btn.ready { border-color: var(--cyan); box-shadow: 0 0 16px rgba(0, 240, 255, 0.6); opacity: 0.95; }
+.dash-btn:active { transform: scale(0.92); }
+.toggle .val { font-family: Orbitron, sans-serif; font-size: 13px; color: var(--cyan); }
 #boss-bar { margin: 10px auto 0; max-width: 420px; }
 .boss-name { text-align: center; font-size: 12px; font-weight: 900; letter-spacing: 3px; color: var(--red); text-shadow: 0 0 8px var(--red); margin-bottom: 3px; }
 .bar.boss { height: 12px; }

@@ -75,7 +75,7 @@ export class Renderer {
 
     // Bildschirm-Koordinaten
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.drawBossPointer(ctx, game);
+    this.drawPointers(ctx, game);
     this.drawVignette(ctx, game);
     if (game.state === 'play') this.drawJoystick(ctx);
   }
@@ -224,11 +224,31 @@ export class Renderer {
         ctx.fill();
       }
       if (e.fuse >= 0) {
-        ctx.strokeStyle = 'rgba(255,200,0,0.7)';
+        // Explosionsradius anzeigen, damit man rechtzeitig ausweichen kann
+        const R = e.def.explode.radius;
+        const k = 1 - e.fuse / e.def.explode.fuse;
+        ctx.fillStyle = `rgba(255,60,40,${0.12 + 0.18 * k})`;
+        ctx.strokeStyle = 'rgba(255,80,40,0.9)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(e.x, e.y, e.def.explode.radius * (1 - e.fuse / e.def.explode.fuse), 0, Math.PI * 2);
+        ctx.arc(e.x, e.y, R, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,220,0,0.9)';
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, R * k, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      // Boss-Sprint ankündigen
+      if (e.def.boss && e.phase === 'dash' && e.phaseT > 0) {
+        ctx.strokeStyle = `rgba(255,40,90,${0.25 + 0.35 * Math.abs(Math.sin(game.time * 20))})`;
+        ctx.lineWidth = e.r * 1.6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y);
+        ctx.lineTo(e.x + e.dashX * 420, e.y + e.dashY * 420);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
       }
       if (e.elite && !e.def.boss) {
         const w = e.r * 2;
@@ -397,25 +417,37 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
-  drawBossPointer(ctx, game) {
+  // Pfeile am Bildschirmrand für wichtige Dinge außerhalb der Sicht
+  drawPointers(ctx, game) {
     const b = game.boss;
-    if (!b || b.dead) return;
-    const bx = (b.x - this.camX) * this.zoom;
-    const by = (b.y - this.camY) * this.zoom;
-    const m = 30;
+    if (b && !b.dead) this.drawPointer(ctx, b.x, b.y, '#ff3d6a', 1.3);
+    let n = 0;
+    for (const e of game.enemies) {
+      if (!e.elite || e.dead || e.def.boss) continue;
+      this.drawPointer(ctx, e.x, e.y, '#ff7a9a', 0.9);
+      if (++n > 6) break;
+    }
+    for (const k of game.pickups) if (k.kind === 'crate') this.drawPointer(ctx, k.x, k.y, '#ffd740', 0.8);
+  }
+
+  drawPointer(ctx, wx, wy, color, size) {
+    const bx = (wx - this.camX) * this.zoom;
+    const by = (wy - this.camY) * this.zoom;
+    const m = 10;
     if (bx > -m && bx < this.w + m && by > -m && by < this.h + m) return;
-    const cx = this.w / 2;
-    const cy = this.h / 2;
-    const ang = Math.atan2(by - cy, bx - cx);
-    const px = Math.max(30, Math.min(this.w - 30, bx));
-    const py = Math.max(80, Math.min(this.h - 30, by));
+    const ang = Math.atan2(by - this.h / 2, bx - this.w / 2);
+    const px = Math.max(24, Math.min(this.w - 24, bx));
+    const py = Math.max(90, Math.min(this.h - 24, by));
     ctx.save();
     ctx.translate(px, py);
     ctx.rotate(ang);
-    ctx.fillStyle = '#ff3d6a';
+    ctx.scale(size, size);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
     ctx.beginPath();
     ctx.moveTo(14, 0);
     ctx.lineTo(-8, -9);
+    ctx.lineTo(-4, 0);
     ctx.lineTo(-8, 9);
     ctx.closePath();
     ctx.fill();

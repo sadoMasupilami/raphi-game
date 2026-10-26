@@ -41,7 +41,7 @@ export const WEAPONS = {
   },
   plasmaKlinge: {
     name: 'Plasma-Klinge', elem: 'fire', type: 'melee', kind: 'sweep', price: 18,
-    dmg: [11, 17, 26, 40], cd: [0.8, 0.74, 0.68, 0.6], range: 95, scale: 1, arc: 1.9,
+    dmg: [13, 20, 30, 46], cd: [0.8, 0.74, 0.68, 0.6], range: 105, scale: 1, arc: 1.9,
     burn: [3, 5, 8, 13], knock: 90,
     desc: 'Schwingt eine glühende Klinge im weiten Bogen.',
   },
@@ -60,7 +60,7 @@ export const WEAPONS = {
   },
   kryoHammer: {
     name: 'Kryo-Hammer', elem: 'ice', type: 'melee', kind: 'slam', price: 22,
-    dmg: [17, 26, 39, 58], cd: [1.4, 1.3, 1.18, 1.05], range: 115, scale: 1.2, aoe: [52, 58, 66, 76],
+    dmg: [20, 30, 45, 68], cd: [1.35, 1.25, 1.12, 1.0], range: 125, scale: 1.2, aoe: [52, 58, 66, 76],
     chill: [2, 2, 3, 3], knock: 120,
     desc: 'Zertrümmert den Boden und kühlt alle Gegner ringsum.',
   },
@@ -79,7 +79,7 @@ export const WEAPONS = {
   },
   stromlanze: {
     name: 'Stromlanze', elem: 'bolt', type: 'melee', kind: 'thrust', price: 18,
-    dmg: [9, 14, 21, 32], cd: [0.62, 0.56, 0.5, 0.44], range: 135, scale: 1, width: 22,
+    dmg: [11, 17, 25, 38], cd: [0.6, 0.54, 0.48, 0.42], range: 145, scale: 1, width: 22,
     chain: [1, 1, 2, 2], knock: 60,
     desc: 'Schnelle Stöße. Der Strom springt auf Gegner in der Nähe über.',
   },
@@ -98,7 +98,7 @@ export const WEAPONS = {
   },
   voidSense: {
     name: 'Void-Sense', elem: 'void', type: 'melee', kind: 'sweep', price: 24,
-    dmg: [14, 21, 32, 48], cd: [1.1, 1.0, 0.9, 0.8], range: 115, scale: 1.1, arc: 2.7,
+    dmg: [16, 25, 37, 56], cd: [1.05, 0.95, 0.86, 0.76], range: 125, scale: 1.1, arc: 2.7,
     voidStacks: [2, 2, 3, 3], knock: 70,
     desc: 'Riesiger Sensenschwung, der viele Gegner auf einmal trifft.',
   },
@@ -110,6 +110,7 @@ export const SHOCK_BONUS = 0.2;       // +20 % Schaden auf geschockte Gegner
 
 // Werte des Spielers
 export const BASE_STATS = {
+  dashCdr: 0,
   maxHp: 25, regen: 0, lifesteal: 0, dmg: 0, melee: 0, ranged: 0, elem: 0,
   atkSpd: 0, crit: 5, range: 0, armor: 0, dodge: 0, speed: 0, luck: 0, harvest: 0, magnet: 0,
   // Spezialwerte
@@ -198,8 +199,8 @@ export const ITEMS = {
 export const CHARACTERS = [
   {
     id: 'vex', name: 'VEX', title: 'Cyborg-Klingenmeister', color: '#ff5a3c', weapon: 'plasmaKlinge',
-    stats: { melee: 3, lifesteal: 4, armor: 1, ranged: -2 },
-    perks: ['+3 Nahkampfschaden', '+4% Lebensraub', '+1 Rüstung', '−2 Fernkampfschaden'],
+    stats: { melee: 3, lifesteal: 6, armor: 2, ranged: -2 },
+    perks: ['+3 Nahkampfschaden', '+6% Lebensraub', '+2 Rüstung', '−2 Fernkampfschaden'],
   },
   {
     id: 'nyx', name: 'NYX', title: 'Netzhackerin', color: '#ffe94a', weapon: 'teslaSpule',
@@ -208,8 +209,8 @@ export const CHARACTERS = [
   },
   {
     id: 'brock', name: 'BROCK', title: 'Mech-Pilot', color: '#5fe3ff', weapon: 'kryoHammer',
-    stats: { maxHp: 15, armor: 3, speed: -8 },
-    perks: ['+15 Max. HP', '+3 Rüstung', '−8% Tempo'],
+    stats: { maxHp: 15, armor: 3, melee: 2, speed: -6 },
+    perks: ['+15 Max. HP', '+3 Rüstung', '+2 Nahkampfschaden', '−6% Tempo'],
   },
   {
     id: 'echo', name: 'ECHO', title: 'Schatten-Android', color: '#b45cff', weapon: 'nanoSchwarm',

@@ -93,6 +93,7 @@ const SOUNDS = {
   rail: { gap: 0.1, fn: (t) => { tone(t, { type: 'sawtooth', f0: 2400, f1: 120, dur: 0.3, vol: 0.09 }); } },
   swing: { gap: 0.07, fn: (t) => noise(t, { dur: 0.1, vol: 0.08, freq: 3000, type: 'highpass', q: 0.5 }) },
   slam: { gap: 0.1, fn: (t) => { tone(t, { type: 'sine', f0: 160, f1: 40, dur: 0.25, vol: 0.25 }); noise(t, { dur: 0.2, vol: 0.12, freq: 800 }); } },
+  dash: { gap: 0.1, fn: (t) => { noise(t, { dur: 0.18, vol: 0.12, freq: 4000, type: 'bandpass', q: 0.8 }); tone(t, { type: 'sine', f0: 300, f1: 900, dur: 0.12, vol: 0.06 }); } },
   hit: { gap: 0.04, fn: (t) => tone(t, { type: 'triangle', f0: 300, f1: 120, dur: 0.05, vol: 0.06 }) },
   kill: { gap: 0.05, fn: (t) => noise(t, { dur: 0.12, vol: 0.08, freq: 1800 }) },
   boom: { gap: 0.08, fn: (t) => { noise(t, { dur: 0.4, vol: 0.3, freq: 900 }); tone(t, { type: 'sine', f0: 120, f1: 35, dur: 0.35, vol: 0.25 }); } },

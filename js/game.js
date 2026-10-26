@@ -12,8 +12,10 @@ export const ARENA = { w: 1500, h: 1500 };
 const CELL = 64;
 const MAX_ENEMIES = 170;
 const MAX_PARTICLES = 380;
-const MAX_TEXTS = 45;
+const MAX_TEXTS = 36;
 const PLAYER_BASE_SPEED = 210;
+const DASH_SPEED = 820;
+const DASH_TIME = 0.17;
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -38,7 +40,7 @@ export class Game {
     this.pendingLevels = 0;
     this.endless = false;
     this.victory = false;
-    this.showDmg = true;
+    this.dmgMode = 'all'; // 'all' | 'crit' | 'off'
     this.shake = 0;
     this.uid = 1;
 
@@ -48,7 +50,10 @@ export class Game {
     this.shopOffers = [];
     this.rerolls = 0;
 
-    this.player = { x: ARENA.w / 2, y: ARENA.h / 2, r: 14, hp: 1, iframes: 0, shieldT: 0, regenAcc: 0, vx: 0, vy: 0, lsBudget: 10 };
+    this.player = {
+      x: ARENA.w / 2, y: ARENA.h / 2, r: 14, hp: 1, iframes: 0, shieldT: 0, regenAcc: 0, vx: 0, vy: 0, lsBudget: 10,
+      dashT: 0, dashCd: 0, dashX: 0, dashY: -1, faceX: 0, faceY: -1,
+    };
     this.enemies = [];
     this.projectiles = [];
     this.ebullets = [];
@@ -88,6 +93,7 @@ export class Game {
 
   get moveSpeed() { return PLAYER_BASE_SPEED * Math.max(0.35, 1 + this.stats.speed / 100); }
   get cdMult() { return 1 / Math.max(0.3, 1 + this.stats.atkSpd / 100); }
+  get dashCooldown() { return Math.max(0.6, 2.2 * (1 - (this.stats.dashCdr || 0) / 100)); }
   get magnetR() { return 75 * Math.max(0.5, 1 + this.stats.magnet / 100); }
   armorFactor() {
     const a = this.stats.armor;
@@ -311,6 +317,8 @@ export class Game {
     this.player.hp = this.stats.maxHp;
     this.player.iframes = 1;
     this.player.shieldT = 0;
+    this.player.dashT = 0;
+    this.player.dashCd = 0;
     this.state = 'play';
     this.boss = null;
     this.bossAlive = false;
@@ -478,8 +486,21 @@ export class Game {
     // Spieler-Bewegung
     input.update();
     const sp = this.moveSpeed;
-    p.vx = input.x * sp;
-    p.vy = input.y * sp;
+    if (input.x || input.y) {
+      const l = Math.hypot(input.x, input.y);
+      p.faceX = input.x / l;
+      p.faceY = input.y / l;
+    }
+    if (p.dashCd > 0) p.dashCd -= dt;
+    if (p.dashT > 0) {
+      p.dashT -= dt;
+      p.vx = p.dashX * DASH_SPEED;
+      p.vy = p.dashY * DASH_SPEED;
+      this.particle(p.x + rand(-6, 6), p.y + rand(-6, 6), -p.vx * 0.1, -p.vy * 0.1, 0.3, this.char.color, 4);
+    } else {
+      p.vx = input.x * sp;
+      p.vy = input.y * sp;
+    }
     p.x = clamp(p.x + p.vx * dt, p.r, ARENA.w - p.r);
     p.y = clamp(p.y + p.vy * dt, p.r, ARENA.h - p.r);
     if (p.iframes > 0) p.iframes -= dt;
@@ -785,6 +806,20 @@ export class Game {
     this.bolts.push({ pts, life: 0.16, max: 0.16, color, width: 2.5 });
   }
 
+  // ================= Dash =================
+  dash() {
+    const p = this.player;
+    if (this.state !== 'play' || p.dashCd > 0 || p.dashT > 0) return false;
+    p.dashX = p.faceX;
+    p.dashY = p.faceY;
+    p.dashT = DASH_TIME;
+    p.dashCd = this.dashCooldown;
+    p.iframes = Math.max(p.iframes, DASH_TIME + 0.15);
+    this.rings.push({ x: p.x, y: p.y, r0: 10, r1: 34, life: 0.25, max: 0.25, color: this.char.color, width: 4 });
+    audio.play('dash');
+    return true;
+  }
+
   // ================= Projektile =================
   updateProjectiles(dt) {
     const list = this.projectiles;
@@ -886,7 +921,9 @@ export class Game {
     if (e.dead) return;
     e.hp -= amount;
     e.flash = 0.07;
-    if (this.showDmg) this.addText(e.x + rand(-6, 6), e.y - e.r - 4, Math.max(1, Math.round(amount)), color, big ? 17 : 13);
+    if (this.dmgMode === 'all' || (big && this.dmgMode === 'crit')) {
+      this.addText(e.x + rand(-6, 6), e.y - e.r - 4, Math.max(1, Math.round(amount)), color, big ? 17 : 13);
+    }
     if (e.hp <= 0) this.killEnemy(e);
   }
 

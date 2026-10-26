@@ -18,7 +18,7 @@ const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content 
 const store = loadStore();
 function loadStore() {
   const def = {
-    settings: { sfx: true, music: true, vibrate: true, dmgNumbers: true, shake: true, fullscreen: true },
+    settings: { sfx: true, music: true, vibrate: true, dmgMode: 'all', shake: true, fullscreen: true, dashSide: 'right' },
     highscores: {},
     lastChar: 'vex',
     lastDiff: 'normal',
@@ -27,7 +27,11 @@ function loadStore() {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return def;
     const data = JSON.parse(raw);
-    return { ...def, ...data, settings: { ...def.settings, ...(data.settings || {}) } };
+    const settings = { ...def.settings, ...(data.settings || {}) };
+    // Alte Einstellung (an/aus) übernehmen
+    if (data.settings && data.settings.dmgNumbers === false && !data.settings.dmgMode) settings.dmgMode = 'off';
+    delete settings.dmgNumbers;
+    return { ...def, ...data, settings };
   } catch (_) {
     return def;
   }
@@ -246,7 +250,7 @@ const hooks = {
 
 function startGame() {
   game = new Game(selectedChar, selectedDiff, hooks);
-  game.showDmg = store.settings.dmgNumbers;
+  game.dmgMode = store.settings.dmgMode;
   hideAll();
   $('#hud').classList.remove('hidden');
   $('#boss-bar').classList.add('hidden');
@@ -270,6 +274,12 @@ function pauseGame() {
 }
 
 $('#btn-pause').onclick = () => pauseGame();
+$('#btn-dash').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  audio.init();
+  if (game && game.dash()) vibrate(12);
+});
 $('#btn-resume').onclick = () => resumePlay();
 $('#btn-pause-stats').onclick = () => { renderStats(); openOverlay('stats'); };
 $('#btn-pause-settings').onclick = () => { renderSettings(); openOverlay('settings'); };
@@ -280,6 +290,10 @@ $('#btn-quit').onclick = () => {
 };
 $('#btn-stats-back').onclick = () => closeOverlay('stats');
 window.addEventListener('keydown', (e) => {
+  if (e.key === ' ' && game) {
+    e.preventDefault();
+    game.dash();
+  }
   if ((e.key === 'Escape' || e.key === 'p') && game) {
     if (game.state === 'play') pauseGame();
     else if (game.state === 'paused') resumePlay();
@@ -547,20 +561,34 @@ function renderStats() {
 
 // ================= Einstellungen =================
 function renderSettings() {
+  // [Schlüssel, Name, Auswahl (optional)]
   const opts = [
     ['sfx', 'Soundeffekte'],
     ['music', 'Musik'],
     ['vibrate', 'Vibration'],
-    ['dmgNumbers', 'Schadenszahlen'],
+    ['dmgMode', 'Schadenszahlen', [['all', 'Alle'], ['crit', 'Nur Krits'], ['off', 'Aus']]],
+    ['dashSide', 'Dash-Knopf', [['right', 'Rechts'], ['left', 'Links']]],
     ['shake', 'Bildschirm-Wackeln'],
     ['fullscreen', 'Vollbild beim Start'],
   ];
-  $('#settings-list').innerHTML = opts.map(([k, label]) =>
-    `<button class="toggle ${store.settings[k] ? 'on' : ''}" data-k="${k}"><span>${label}</span><span class="sw"></span></button>`).join('');
+  const optMap = Object.fromEntries(opts.map((o) => [o[0], o]));
+  $('#settings-list').innerHTML = opts.map(([k, label, choices]) => {
+    if (choices) {
+      const cur = choices.find((c) => c[0] === store.settings[k]) || choices[0];
+      return `<button class="toggle choice" data-k="${k}"><span>${label}</span><span class="val">${cur[1]} ›</span></button>`;
+    }
+    return `<button class="toggle ${store.settings[k] ? 'on' : ''}" data-k="${k}"><span>${label}</span><span class="sw"></span></button>`;
+  }).join('');
   $('#settings-list').querySelectorAll('.toggle').forEach((el) => {
     el.onclick = () => {
       const k = el.dataset.k;
-      store.settings[k] = !store.settings[k];
+      const choices = optMap[k][2];
+      if (choices) {
+        const i = choices.findIndex((c) => c[0] === store.settings[k]);
+        store.settings[k] = choices[(i + 1) % choices.length][0];
+      } else {
+        store.settings[k] = !store.settings[k];
+      }
       saveStore();
       applySettings();
       renderSettings();
@@ -572,7 +600,8 @@ function applySettings() {
   audio.setSfx(store.settings.sfx);
   audio.setMusic(store.settings.music);
   renderer.shakeOn = store.settings.shake;
-  if (game) game.showDmg = store.settings.dmgNumbers;
+  if (game) game.dmgMode = store.settings.dmgMode;
+  $('#btn-dash').classList.toggle('left', store.settings.dashSide === 'left');
 }
 
 // ================= Anleitung =================
@@ -587,6 +616,7 @@ function renderHowto() {
   }).join('');
   $('#howto').innerHTML = `
     <p>🕹️ <b>Steuerung:</b> Leg den Daumen irgendwo auf den Bildschirm und zieh – so läufst du. Deine Waffen zielen und feuern <b>automatisch</b>. Am PC: WASD oder Pfeiltasten.</p>
+    <p>💨 <b>Dash:</b> Tippe auf <b>DASH</b> (am PC: Leertaste) für einen kurzen Sprint, bei dem du unverwundbar bist. Perfekt, um durch Gegnerhorden zu entkommen!</p>
     <p>⏱️ <b>Ziel:</b> Überlebe 20 Wellen. In Welle 10 wartet der <b>WÄCHTER</b>, in Welle 20 der <b>OMEGA-KERN</b>.</p>
     <p>💠 <b>Daten-Chips</b> von besiegten Gegnern geben Erfahrung (Level-Ups) und Credits. Kapseln <b>?</b> enthalten Items, grüne Kreuze heilen.</p>
     <p>🛒 Alle ${SHOP_EVERY} Wellen öffnet der <b>Schwarzmarkt</b>. Zwei gleiche Waffen gleicher Stufe kannst du zu einer stärkeren <b>verschmelzen</b> (bis Stufe IV). Mit 🔒 behältst du ein Angebot für später.</p>
@@ -717,6 +747,13 @@ function updateHUD() {
     $('#wave-timer').classList.toggle('urgent', urgent);
   }
   if (g.boss) setScale('boss-fill', g.boss.hp / g.boss.maxHp);
+  const cd = Math.max(0, g.player.dashCd / g.dashCooldown).toFixed(2);
+  if (hudCache.dash !== cd) {
+    hudCache.dash = cd;
+    const btn = document.getElementById('btn-dash');
+    btn.style.setProperty('--cd', cd);
+    btn.classList.toggle('ready', cd === '0.00');
+  }
 }
 
 // ================= Schleife =================
