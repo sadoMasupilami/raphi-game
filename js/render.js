@@ -61,6 +61,7 @@ export class Renderer {
 
     this.drawArena(ctx, cx, cy);
     this.drawMarkers(ctx, game);
+    this.drawZones(ctx, game);
     this.drawPickups(ctx, game);
     this.drawVortices(ctx, game);
     this.drawEnemies(ctx, game);
@@ -154,6 +155,66 @@ export class Renderer {
     }
   }
 
+  // Napalm-Flächen, verzögerte Explosionen, Teleport-Ziele, Laser-Visiere
+  drawZones(ctx, game) {
+    for (const z of game.zones) {
+      const k = Math.min(1, z.t / 0.4);
+      const flick = 0.85 + Math.random() * 0.15;
+      ctx.fillStyle = `rgba(255,90,20,${0.22 * k * flick})`;
+      ctx.strokeStyle = `rgba(255,140,40,${0.7 * k})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    for (const h of game.hazards) {
+      const k = 1 - h.t / h.max;
+      ctx.fillStyle = `rgba(255,70,30,${0.1 + 0.2 * k})`;
+      ctx.strokeStyle = 'rgba(255,110,40,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    for (const e of game.enemies) {
+      if (e.blinkTo) {
+        const b = e.blinkTo;
+        const k = 1 - b.t / b.max;
+        ctx.strokeStyle = `rgba(255,61,187,${0.4 + 0.5 * k})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, e.r + 14 * (1 - k), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (e.laserState === 'charge' || e.laserState === 'fire') {
+        const L = e.def.laser;
+        const ex = e.x + Math.cos(e.laserAng) * L.len;
+        const ey = e.y + Math.sin(e.laserAng) * L.len;
+        ctx.lineCap = 'round';
+        if (e.laserState === 'charge') {
+          const locked = e.laserT <= 0.3;
+          ctx.strokeStyle = locked ? `rgba(255,40,40,${0.5 + 0.4 * Math.abs(Math.sin(game.time * 30))})` : 'rgba(255,40,40,0.35)';
+          ctx.lineWidth = locked ? 3 : 1.5;
+        } else {
+          ctx.strokeStyle = 'rgba(255,60,60,0.9)';
+          ctx.lineWidth = 14;
+        }
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        if (e.laserState === 'fire') {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        }
+        ctx.lineCap = 'butt';
+      }
+    }
+  }
+
   drawVortices(ctx, game) {
     for (const v of game.vortices) {
       const a = Math.min(1, v.t / 0.3);
@@ -184,7 +245,18 @@ export class Renderer {
     for (const e of game.enemies) {
       if (e.dead || e.x < vx0 || e.x > vx1 || e.y < vy0 || e.y > vy1) continue;
       const rot = e.def.shape === 'tri' || e.def.shape === 'spike' ? Math.atan2(game.player.y - e.y, game.player.x - e.x) : e.rot * 0.5;
-      drawSprite(ctx, e.flash > 0 ? e.white : e.sprite, e.x, e.y, rot);
+      const sc = e.spawnT > 0 ? 1 - e.spawnT / 0.25 * 0.6 : 1;
+      drawSprite(ctx, e.flash > 0 ? e.white : e.sprite, e.x, e.y, rot, sc);
+      if (e.shieldHp > 0) {
+        const f = e.shieldHp / e.shieldMax;
+        ctx.strokeStyle = `rgba(110,180,255,${0.3 + 0.6 * f})`;
+        ctx.fillStyle = `rgba(60,140,255,${0.12 * f})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r + 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
       if (e.frozen > 0) {
         ctx.fillStyle = 'rgba(120,230,255,0.35)';
         ctx.strokeStyle = '#bff6ff';
@@ -266,7 +338,12 @@ export class Renderer {
     // Waffen
     for (const w of game.weapons) {
       const d = WEAPONS[w.id];
-      drawSprite(ctx, weaponSprite(w.id, ELEMENTS[d.elem].color), w.x, w.y, w.angle, 0.9 + w.tier * 0.08);
+      const spr = weaponSprite(w.id, ELEMENTS[d.elem].color);
+      if (d.kind === 'orbit') {
+        for (const sh of w.shards || []) drawSprite(ctx, spr, sh.x, sh.y, sh.a + Math.PI / 2, 0.8 + w.tier * 0.08);
+        continue;
+      }
+      drawSprite(ctx, spr, w.x, w.y, w.angle, 0.9 + w.tier * 0.08);
     }
     const blink = p.iframes > 0 && game.state === 'play' && Math.floor(game.time * 20) % 2 === 0;
     ctx.globalAlpha = blink ? 0.4 : 1;
@@ -325,6 +402,10 @@ export class Renderer {
           break;
         case 'orb':
           drawSprite(ctx, dotSprite(pr.color, 9), pr.x, pr.y, 0, 1 + Math.sin(game.time * 20) * 0.1);
+          break;
+        case 'boomerang':
+          drawSprite(ctx, dotSprite(pr.color, 5), pr.x, pr.y);
+          drawSprite(ctx, weaponSprite('gravBumerang', pr.color), pr.x, pr.y, pr.spin, 1.1);
           break;
         default:
           break;

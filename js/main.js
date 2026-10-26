@@ -1,7 +1,7 @@
 // Einstieg: Menüs, HUD, Shop, Level-Up und Spielschleife
 import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, STAT_DEFS, SPECIAL_DEFS,
-  BASE_STATS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
+  BASE_STATS, WAVE_MODS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
 } from './data.js';
 import { Game } from './game.js';
 import { Renderer } from './render.js';
@@ -156,7 +156,8 @@ function weaponInfo(id, tier, g = game) {
   if (d.voidStacks) lines.push(`🌀 Korrosion: <b>${d.voidStacks[tier]}</b> Stapel pro Treffer`);
   if (d.pierce) lines.push(`Durchschlag: <b>${d.pierce[tier]}</b>`);
   if (d.aoe) lines.push(`Fläche: <b>${d.aoe[tier]}</b>`);
-  if (d.count) lines.push(`Geschosse: <b>${d.count[tier]}</b>`);
+  if (d.count) lines.push(`Anzahl: <b>${d.count[tier]}</b>`);
+  if (d.dur) lines.push(`Brenndauer: <b>${d.dur} s</b>`);
   return lines;
 }
 
@@ -204,7 +205,7 @@ $('#btn-select-back').onclick = () => showMenu();
 function renderSelect() {
   $('#char-grid').innerHTML = CHARACTERS.map((c) => {
     const wd = WEAPONS[c.weapon];
-    const perks = c.perks.map((p) => `<li class="${p.startsWith('−') ? 'neg' : 'pos'}">${p}</li>`).join('');
+    const perks = c.perks.map((p) => `<li class="${p.startsWith('−') || p.startsWith('⚠') ? 'neg' : 'pos'}">${p}</li>`).join('');
     return `<div class="char-card ${c.id === selectedChar ? 'selected' : ''}" data-id="${c.id}" style="--c:${c.color}">
       <div class="char-avatar"></div>
       <div class="char-name">${c.name}</div>
@@ -377,6 +378,7 @@ function afterWave() {
     $('#wave-summary').innerHTML = `
       Eingesammelt: <span class="big-num">${Math.round(info.collected)}</span> Credits<br>
       Ernte: <span class="big-num">+${info.harvest}</span><br>
+      ${info.interest ? `Zinsen: <span class="big-num">+${info.interest}</span><br>` : ''}
       Guthaben: <span class="big-num">${game.credits}</span>`;
     const left = SHOP_EVERY - (game.wave % SHOP_EVERY);
     $('#wave-next-shop').textContent = game.wave + 1 === MAX_WAVE
@@ -404,7 +406,7 @@ function renderShop(info) {
   const g = game;
   $('#shop-credits').textContent = g.credits;
   if (info) {
-    $('#shop-sub').textContent = `Welle ${g.wave} geschafft · +${Math.round(info.collected)} Credits · Ernte +${info.harvest}`;
+    $('#shop-sub').textContent = `Welle ${g.wave} geschafft · +${Math.round(info.collected)} Credits · Ernte +${info.harvest}${info.interest ? ` · Zinsen +${info.interest}` : ''}`;
   }
   $('#shop-offers').innerHTML = g.shopOffers.map((o, i) => {
     if (!o) return `<div class="offer empty">VERKAUFT</div>`;
@@ -441,6 +443,7 @@ function renderShop(info) {
       const res = g.buy(i);
       if (res === 'money') { audio.play('error'); toast('Nicht genug Credits', '#ff3d6a'); return; }
       if (res === 'slots') { audio.play('error'); toast('Alle 6 Waffenplätze belegt – verkaufe oder verschmelze eine Waffe', '#ff3d6a'); return; }
+      if (res === 'type') { audio.play('error'); toast(`${g.char.name} kann nur ${g.char.onlyType === 'melee' ? 'Nahkampf' : 'Fernkampf'}waffen tragen`, '#ff3d6a'); return; }
       if (res === 'max') { audio.play('error'); toast('Dieses Item kannst du nur einmal haben', '#ff3d6a'); return; }
       if (res === 'merged') toast('Waffe verschmolzen! ⬆', '#ffe94a');
       audio.play('buy');
@@ -741,6 +744,7 @@ function updateHUD() {
   if (g.waveTime === Infinity || (g.bossAlive && g.waveTime <= 0)) timer = 'BOSS';
   else timer = String(Math.max(0, Math.ceil(g.waveTime)));
   setText('wave-timer', timer);
+  setText('wave-mod', g.mod ? `${WAVE_MODS[g.mod].icon} ${WAVE_MODS[g.mod].name}` : '');
   const urgent = timer !== 'BOSS' && g.waveTime <= 5;
   if (hudCache.urgent !== urgent) {
     hudCache.urgent = urgent;

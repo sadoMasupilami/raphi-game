@@ -73,6 +73,31 @@ function enemyPath(g, shape, r) {
       g.closePath();
       break;
     }
+    case 'oct': poly(g, 8, r, Math.PI / 8); break;
+    case 'star': {
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i / 10) * Math.PI * 2;
+        const rr = i % 2 ? r * 0.45 : r;
+        g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      g.closePath();
+      break;
+    }
+    case 'turret':
+      g.beginPath();
+      g.rect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+      g.moveTo(r * 0.55, 0);
+      g.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+      break;
+    case 'cross': {
+      const a = r * 0.38;
+      g.beginPath();
+      g.moveTo(-a, -r); g.lineTo(a, -r); g.lineTo(a, -a); g.lineTo(r, -a); g.lineTo(r, a); g.lineTo(a, a);
+      g.lineTo(a, r); g.lineTo(-a, r); g.lineTo(-a, a); g.lineTo(-r, a); g.lineTo(-r, -a); g.lineTo(-a, -a);
+      g.closePath();
+      break;
+    }
     case 'boss1': poly(g, 8, r, Math.PI / 8); break;
     case 'boss2': poly(g, 12, r, 0); break;
     default: g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2);
@@ -253,6 +278,25 @@ export function drawWeaponShape(g, id, color) {
     case 'voidSense':
       g.moveTo(-12, 0); g.lineTo(8, 0);
       g.moveTo(8, 0); g.quadraticCurveTo(14, -14, 2, -16); g.quadraticCurveTo(10, -9, 6, 0);
+      break;
+    case 'napalmWerfer':
+      g.rect(-8, -5, 10, 10);
+      g.moveTo(2, -3); g.lineTo(14, -4); g.lineTo(14, 4); g.lineTo(2, 3);
+      g.moveTo(-3, -5); g.lineTo(-3, -9); g.lineTo(3, -9);
+      break;
+    case 'frostSplitter':
+      poly(g, 4, 9, 0);
+      g.moveTo(4, 0); poly(g, 4, 4, 0);
+      break;
+    case 'blitzDrohne':
+      g.ellipse(0, 0, 9, 5, 0, 0, Math.PI * 2);
+      g.moveTo(-12, -7); g.lineTo(-4, -3);
+      g.moveTo(12, -7); g.lineTo(4, -3);
+      g.moveTo(-12, 7); g.lineTo(-4, 3);
+      g.moveTo(12, 7); g.lineTo(4, 3);
+      break;
+    case 'gravBumerang':
+      g.moveTo(-12, 8); g.quadraticCurveTo(0, -16, 12, 8); g.quadraticCurveTo(0, -6, -12, 8);
       break;
     default:
       g.arc(0, 0, 6, 0, Math.PI * 2);

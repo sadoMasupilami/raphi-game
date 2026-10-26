@@ -61,6 +61,7 @@ h2, h3, .btn, .logo, #wave-label, #wave-timer, .bar span, .credits, .boss-name {
 .hud-center { flex: 1; text-align: center; }
 #wave-label { font-size: 13px; font-weight: 700; letter-spacing: 2px; color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
 #wave-timer { font-size: 28px; font-weight: 900; line-height: 1.1; text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+#wave-mod { font-family: Orbitron, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--yellow); text-shadow: 0 0 6px var(--yellow); }
 #wave-timer.urgent { color: var(--red); text-shadow: 0 0 10px var(--red); }
 
 .bar {

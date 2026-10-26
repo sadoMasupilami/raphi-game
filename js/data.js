@@ -45,6 +45,12 @@ export const WEAPONS = {
     burn: [3, 5, 8, 13], knock: 90,
     desc: 'Schwingt eine glühende Klinge im weiten Bogen.',
   },
+  napalmWerfer: {
+    name: 'Napalm-Werfer', elem: 'fire', type: 'ranged', kind: 'puddle', price: 26,
+    dmg: [5, 8, 12, 18], cd: [2.2, 2.0, 1.8, 1.6], range: 320, scale: 0.5, aoe: [50, 58, 66, 76],
+    burn: [4, 6, 9, 14], knock: 0, dur: 3,
+    desc: 'Wirft Napalm, das den Boden in Brand setzt.',
+  },
   // ---------- EIS ----------
   kryoGewehr: {
     name: 'Kryo-Gewehr', elem: 'ice', type: 'ranged', kind: 'bullet', price: 20,
@@ -63,6 +69,12 @@ export const WEAPONS = {
     dmg: [20, 30, 45, 68], cd: [1.35, 1.25, 1.12, 1.0], range: 125, scale: 1.2, aoe: [52, 58, 66, 76],
     chill: [2, 2, 3, 3], knock: 120,
     desc: 'Zertrümmert den Boden und kühlt alle Gegner ringsum.',
+  },
+  frostSplitter: {
+    name: 'Frost-Splitter', elem: 'ice', type: 'melee', kind: 'orbit', price: 24,
+    dmg: [6, 9, 14, 21], cd: [0.5, 0.45, 0.4, 0.35], range: 68, scale: 0.7, count: [2, 3, 3, 4],
+    chill: [1, 1, 2, 2], knock: 30,
+    desc: 'Eissplitter kreisen um dich und treffen alles, was ihnen zu nahe kommt.',
   },
   // ---------- BLITZ ----------
   teslaSpule: {
@@ -83,6 +95,12 @@ export const WEAPONS = {
     chain: [1, 1, 2, 2], knock: 60,
     desc: 'Schnelle Stöße. Der Strom springt auf Gegner in der Nähe über.',
   },
+  blitzDrohne: {
+    name: 'Blitz-Drohne', elem: 'bolt', type: 'ranged', kind: 'drone', price: 24,
+    dmg: [6, 9, 13, 20], cd: [0.7, 0.62, 0.55, 0.48], range: 230, scale: 0.6, chain: [0, 1, 1, 2],
+    knock: 5,
+    desc: 'Eine Kampfdrohne fliegt um dich herum und schießt Blitze.',
+  },
   // ---------- VOID ----------
   nanoSchwarm: {
     name: 'Nano-Schwarm', elem: 'void', type: 'ranged', kind: 'homing', price: 22,
@@ -102,6 +120,12 @@ export const WEAPONS = {
     voidStacks: [2, 2, 3, 3], knock: 70,
     desc: 'Riesiger Sensenschwung, der viele Gegner auf einmal trifft.',
   },
+  gravBumerang: {
+    name: 'Gravitations-Bumerang', elem: 'void', type: 'ranged', kind: 'boomerang', price: 24,
+    dmg: [9, 14, 21, 32], cd: [1.4, 1.3, 1.2, 1.05], range: 260, scale: 0.9, speed: 430,
+    voidStacks: [1, 2, 2, 3], knock: 20,
+    desc: 'Fliegt hinaus, kommt zurück und trifft dabei alles doppelt.',
+  },
 };
 
 // Status-Effekte der Element-Waffen ohne eigenen Wert
@@ -115,6 +139,7 @@ export const BASE_STATS = {
   atkSpd: 0, crit: 5, range: 0, armor: 0, dodge: 0, speed: 0, luck: 0, harvest: 0, magnet: 0,
   // Spezialwerte
   burnMult: 0, freezeStacks: 5, chainBonus: 0, voidMax: 8, voidMult: 0, reactionMult: 0, shield: 0,
+  detonator: 0, prism: 0, lastStand: 0, interest: 0, dashDmg: 0, magnetPulse: 0, thorns: 0,
 };
 
 export const STAT_DEFS = [
@@ -144,6 +169,14 @@ export const SPECIAL_DEFS = {
   voidMult: (v) => `+${v}% Korrosionsschaden`,
   reactionMult: (v) => `+${v}% Reaktionsschaden`,
   shield: () => `Energieschild blockt alle 7 s einen Treffer`,
+  dashCdr: (v) => `−${v}% Dash-Abklingzeit`,
+  dashDmg: () => `Dash verletzt Gegner, durch die du fliegst`,
+  detonator: (v) => `Jeder 8. Kill löst eine Explosion aus${v > 1 ? ` (×${v} Schaden)` : ''}`,
+  prism: () => `Krits wenden zusätzlich ein zufälliges Element an`,
+  lastStand: () => `Überlebe einmal pro Welle einen tödlichen Treffer`,
+  interest: (v) => `${v}% Zinsen auf Credits am Wellenende`,
+  magnetPulse: () => `Alle 8 s werden alle Chips angezogen`,
+  thorns: (v) => `Dornen: Angreifer erleiden ${v}× Rückschaden`,
 };
 
 // Level-Up-Werte pro Stufe
@@ -190,6 +223,13 @@ export const ITEMS = {
   voidReso: { name: 'Void-Resonator', icon: '🌀', tier: 2, price: 60, stats: { voidMax: 5, voidMult: 40 } },
   katalysator: { name: 'Reaktor-Katalysator', icon: '⚗️', tier: 2, price: 65, stats: { reactionMult: 60 } },
   schild: { name: 'Schildgenerator', icon: '🔰', tier: 2, price: 70, stats: { shield: 1 }, max: 1 },
+  phasenDash: { name: 'Phasen-Dash', icon: '💨', tier: 1, price: 38, stats: { dashCdr: 25, dashDmg: 1 } },
+  magnetPuls: { name: 'Magnetfeld-Puls', icon: '🌐', tier: 1, price: 30, stats: { magnetPulse: 1 }, max: 1 },
+  dornen: { name: 'Dornen-Panzer', icon: '🌵', tier: 1, price: 40, stats: { thorns: 1, armor: 1 } },
+  zins: { name: 'Zins-Algorithmus', icon: '📈', tier: 1, price: 40, stats: { interest: 10 }, max: 3 },
+  detonator: { name: 'Detonator-Chip', icon: '💣', tier: 2, price: 60, stats: { detonator: 1 } },
+  prisma: { name: 'Prisma-Linse', icon: '🔮', tier: 2, price: 65, stats: { prism: 1, crit: 5 }, max: 1 },
+  notfall: { name: 'Notfall-Protokoll', icon: '🚑', tier: 2, price: 55, stats: { lastStand: 1 }, max: 1 },
   quantenherz: { name: 'Quantenherz', icon: '💠', tier: 3, price: 105, stats: { maxHp: 25, regen: 4 } },
   gottChip: { name: 'Gottmodus-Chip', icon: '👑', tier: 3, price: 115, stats: { dmg: 22, atkSpd: 12 } },
   singKern: { name: 'Singularitäts-Kern', icon: '🕳️', tier: 3, price: 115, stats: { elem: 35, chainBonus: 1, reactionMult: 30 } },
@@ -217,6 +257,21 @@ export const CHARACTERS = [
     stats: { speed: 12, dodge: 10, harvest: 5, magnet: 30 },
     perks: ['+12% Tempo', '+10% Ausweichen', '+5 Ernte', '+30% Sammelradius'],
   },
+  {
+    id: 'ronin', name: 'RONIN', title: 'Berserker', color: '#ff2b6a', weapon: 'stromlanze',
+    stats: { melee: 5, dmg: 15, maxHp: 5 }, onlyType: 'melee', rage: true,
+    perks: ['+5 Nahkampfschaden', '+15% Schaden', 'Wut: unter 50% HP +30% Angriffstempo', '⚠ Nur Nahkampfwaffen'],
+  },
+  {
+    id: 'kai', name: 'KAI', title: 'Drohnen-Ingenieur', color: '#7dffef', weapon: 'blitzDrohne', extraWeapons: ['blitzDrohne'],
+    stats: { ranged: 3, range: 30, speed: 5 }, onlyType: 'ranged',
+    perks: ['Startet mit 2 Blitz-Drohnen', '+3 Fernkampfschaden', '+30 Reichweite', '⚠ Nur Fernkampfwaffen'],
+  },
+  {
+    id: 'prisma', name: 'PRISMA', title: 'Elementaristin', color: '#ffffff', weapon: 'plasmaBlaster', extraWeapons: ['kryoGewehr'],
+    stats: { reactionMult: 75, elem: 15, dmg: -15 },
+    perks: ['Startet mit Feuer- und Eiswaffe', '+75% Reaktionsschaden', '+15% Elementarschaden', '−15% Schaden'],
+  },
 ];
 
 // Gegner
@@ -229,6 +284,14 @@ export const ENEMIES = {
   bomber: { name: 'Kamikaze', hp: 10, speed: 120, dmg: 13, r: 12, xp: 1, color: '#ffcc00', shape: 'spike', from: 6, weight: 3,
     explode: { radius: 70, fuse: 0.65 } },
   splitter: { name: 'Teiler', hp: 26, speed: 64, dmg: 7, r: 18, xp: 2, color: '#7dff5a', shape: 'pent', from: 8, weight: 2, split: 'mini' },
+  shieldbot: { name: 'Schildträger', hp: 20, speed: 68, dmg: 6, r: 16, xp: 2, color: '#3d8bff', shape: 'oct', from: 7, weight: 2,
+    shield: 0.8 },
+  phaser: { name: 'Phasen-Läufer', hp: 12, speed: 90, dmg: 7, r: 12, xp: 2, color: '#ff3dbb', shape: 'star', from: 9, weight: 2,
+    blink: { cd: 3.2, warn: 0.55 } },
+  turret: { name: 'Laser-Turm', hp: 34, speed: 0, dmg: 11, r: 18, xp: 3, color: '#ff2222', shape: 'turret', from: 11, weight: 1.4,
+    laser: { cd: 3.6, charge: 1.1, fire: 0.25, len: 900 } },
+  healer: { name: 'Heiler-Drohne', hp: 18, speed: 85, dmg: 4, r: 13, xp: 3, color: '#d4ff6b', shape: 'cross', from: 12, weight: 1.2,
+    heal: { cd: 2.6, radius: 150, amount: 0.15, dist: 250 } },
   mini: { name: 'Splitter', hp: 6, speed: 135, dmg: 4, r: 8, xp: 0, color: '#7dff5a', shape: 'tri', from: 99, weight: 0 },
   guardian: { name: 'WÄCHTER', hp: 3200, speed: 62, dmg: 14, r: 40, xp: 30, color: '#ff3d9a', shape: 'boss1', boss: true, fixedHp: true },
   omega: { name: 'OMEGA-KERN', hp: 26000, speed: 58, dmg: 20, r: 56, xp: 0, color: '#ff2244', shape: 'boss2', boss: true, fixedHp: true },
@@ -239,6 +302,16 @@ export const DIFFICULTIES = {
   normal: { name: 'Normal', hp: 1, dmg: 1, spawn: 1, desc: 'Die echte Erfahrung' },
   schwer: { name: 'Schwer', hp: 1.2, dmg: 1.25, spawn: 1.2, desc: 'Nur für Profis' },
 };
+
+// Wellen-Modifikatoren: machen einzelne Wellen besonders
+export const WAVE_MODS = {
+  turbo: { name: 'TURBO', icon: '⚡', desc: 'Alle Gegner sind 30% schneller', color: '#ffe94a' },
+  panzer: { name: 'PANZERUNG', icon: '🛡️', desc: 'Gegner haben +50% HP, lassen aber mehr Chips fallen', color: '#3d8bff' },
+  schwarm: { name: 'SCHWARM', icon: '🐝', desc: 'Doppelt so viele Gegner, dafür schwächer', color: '#7dff5a' },
+  explosiv: { name: 'EXPLOSIV', icon: '💥', desc: 'Besiegte Gegner explodieren kurz darauf', color: '#ff6a2a' },
+  elitejagd: { name: 'ELITE-JAGD', icon: '👑', desc: 'Viele Elite-Gegner – mit Beute-Kapseln', color: '#ff3d6a' },
+};
+export const MOD_WAVES = [6, 9, 13, 16, 18];
 
 export const MAX_WAVE = 20;
 export const MINIBOSS_WAVE = 10;
