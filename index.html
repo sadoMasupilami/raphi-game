@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#04050c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Neon Nexus">
+  <meta name="description" content="Neon Nexus – ein futuristisches Survivor-Spiel mit Element-Waffen fürs Handy.">
+  <title>Neon Nexus</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="bar hp-bar"><div class="fill" id="hp-fill"></div><span id="hp-text">25 / 25</span></div>
+        <div class="bar xp-bar"><div class="fill" id="xp-fill"></div><span id="xp-text">LV 0</span></div>
+        <div class="credits"><span class="chip-icon"></span><span id="credits">0</span></div>
+      </div>
+      <div class="hud-center">
+        <div id="wave-label">WELLE 1</div>
+        <div id="wave-timer">20</div>
+      </div>
+      <button id="btn-pause" class="icon-btn" aria-label="Pause">II</button>
+    </div>
+    <div id="boss-bar" class="hidden">
+      <div class="boss-name" id="boss-name">BOSS</div>
+      <div class="bar boss"><div class="fill" id="boss-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Hauptmenü -->
+  <section id="screen-menu" class="screen">
+    <div class="menu-inner">
+      <div class="logo">
+        <div class="logo-top">NEON</div>
+        <div class="logo-bottom">NEXUS</div>
+        <div class="logo-sub">Überlebe die Maschinen-Horde · Jahr 2199</div>
+      </div>
+      <div class="menu-buttons">
+        <button class="btn primary big" id="btn-play">▶ SPIELEN</button>
+        <button class="btn" id="btn-howto">ANLEITUNG</button>
+        <button class="btn" id="btn-settings">EINSTELLUNGEN</button>
+      </div>
+      <div class="highscores" id="highscores"></div>
+    </div>
+  </section>
+
+  <!-- Charakterauswahl -->
+  <section id="screen-select" class="screen hidden">
+    <div class="panel wide">
+      <h2>WÄHLE DEINEN KÄMPFER</h2>
+      <div class="char-grid" id="char-grid"></div>
+      <h3>SCHWIERIGKEIT</h3>
+      <div class="diff-row" id="diff-row"></div>
+      <div class="row-buttons">
+        <button class="btn" id="btn-select-back">ZURÜCK</button>
+        <button class="btn primary" id="btn-start">START ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Level-Up -->
+  <section id="screen-levelup" class="screen hidden dim">
+    <div class="panel">
+      <h2 class="glow-yellow">LEVEL UP!</h2>
+      <p class="sub" id="levelup-sub">Wähle ein Upgrade</p>
+      <div class="cards" id="levelup-cards"></div>
+      <button class="btn small" id="btn-level-reroll">NEU WÜRFELN</button>
+    </div>
+  </section>
+
+  <!-- Wellenende ohne Shop -->
+  <section id="screen-wave" class="screen hidden dim">
+    <div class="panel">
+      <h2 id="wave-done-title">WELLE GESCHAFFT</h2>
+      <div class="wave-summary" id="wave-summary"></div>
+      <p class="sub" id="wave-next-shop"></p>
+      <div class="row-buttons">
+        <button class="btn" id="btn-wave-stats">WERTE</button>
+        <button class="btn primary" id="btn-wave-next">NÄCHSTE WELLE ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Shop -->
+  <section id="screen-shop" class="screen hidden dim">
+    <div class="panel wide shop">
+      <div class="shop-head">
+        <h2>SCHWARZMARKT</h2>
+        <div class="credits big"><span class="chip-icon"></span><span id="shop-credits">0</span></div>
+      </div>
+      <p class="sub" id="shop-sub"></p>
+      <div class="offers" id="shop-offers"></div>
+      <div class="shop-actions">
+        <button class="btn small" id="btn-reroll">🎲 NEU (5)</button>
+        <button class="btn small" id="btn-shop-stats">WERTE</button>
+      </div>
+      <h3>WAFFEN <span id="weapon-count">1/6</span></h3>
+      <div class="inventory" id="inv-weapons"></div>
+      <p class="hint">Tippe auf eine Waffe, um sie zu verschmelzen oder zu verkaufen.</p>
+      <h3>ITEMS</h3>
+      <div class="inventory items" id="inv-items"></div>
+      <button class="btn primary" id="btn-shop-next">NÄCHSTE WELLE ▶</button>
+    </div>
+  </section>
+
+  <!-- Waffen-Detail -->
+  <section id="screen-weapon" class="screen hidden overlay">
+    <div class="panel narrow" id="weapon-detail"></div>
+  </section>
+
+  <!-- Pause -->
+  <section id="screen-pause" class="screen hidden dim">
+    <div class="panel narrow">
+      <h2>PAUSE</h2>
+      <div class="menu-buttons">
+        <button class="btn primary" id="btn-resume">WEITER</button>
+        <button class="btn" id="btn-pause-stats">WERTE &amp; WAFFEN</button>
+        <button class="btn" id="btn-pause-settings">EINSTELLUNGEN</button>
+        <button class="btn danger" id="btn-quit">AUFGEBEN</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Werte -->
+  <section id="screen-stats" class="screen hidden overlay">
+    <div class="panel narrow">
+      <h2>WERTE</h2>
+      <div class="stats-list" id="stats-list"></div>
+      <button class="btn primary" id="btn-stats-back">ZURÜCK</button>
+    </div>
+  </section>
+
+  <!-- Einstellungen -->
+  <section id="screen-settings" class="screen hidden overlay">
+    <div class="panel narrow">
+      <h2>EINSTELLUNGEN</h2>
+      <div class="settings" id="settings-list"></div>
+      <button class="btn primary" id="btn-settings-back">ZURÜCK</button>
+    </div>
+  </section>
+
+  <!-- Anleitung -->
+  <section id="screen-howto" class="screen hidden overlay">
+    <div class="panel wide">
+      <h2>ANLEITUNG</h2>
+      <div class="howto" id="howto"></div>
+      <button class="btn primary" id="btn-howto-back">ZURÜCK</button>
+    </div>
+  </section>
+
+  <!-- Spielende -->
+  <section id="screen-over" class="screen hidden dim">
+    <div class="panel narrow">
+      <h2 id="over-title">SYSTEM ZERSTÖRT</h2>
+      <div class="wave-summary" id="over-summary"></div>
+      <div class="menu-buttons">
+        <button class="btn primary hidden" id="btn-endless">ENDLOS WEITERSPIELEN</button>
+        <button class="btn primary" id="btn-again">NOCHMAL</button>
+        <button class="btn" id="btn-menu">MENÜ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drehen-Hinweis & Toasts -->
+  <div id="toasts"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
