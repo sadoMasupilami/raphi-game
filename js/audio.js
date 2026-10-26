@@ -1,4 +1,7 @@
-// Synthetisierte Soundeffekte und Musik über WebAudio (keine Audiodateien nötig)
+// Synthetisierte Soundeffekte über WebAudio (keine Audiodateien nötig), Musik siehe music.js
+import { music } from './music.js';
+
+const MUSIC_VOL = 0.55;
 
 let ctx = null;
 let master = null;
@@ -26,12 +29,13 @@ export const audio = {
     sfxGain.gain.value = this.sfx ? 0.5 : 0;
     sfxGain.connect(master);
     musicGain = ctx.createGain();
-    musicGain.gain.value = this.music ? 0.22 : 0;
+    musicGain.gain.value = this.music ? MUSIC_VOL : 0;
     musicGain.connect(master);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    startMusic();
+    music.enabled = this.music;
+    music.init(ctx, musicGain);
   },
 
   setSfx(on) {
@@ -40,7 +44,8 @@ export const audio = {
   },
   setMusic(on) {
     this.music = on;
-    if (musicGain) musicGain.gain.value = on ? 0.22 : 0;
+    music.enabled = on;
+    if (musicGain) musicGain.gain.value = on ? MUSIC_VOL : 0;
   },
   suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); },
   resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
@@ -112,54 +117,3 @@ const SOUNDS = {
   gameover: { gap: 1, fn: (t) => { [392, 330, 262, 196].forEach((f, i) => tone(t + i * 0.18, { type: 'square', f0: f, dur: 0.25, vol: 0.1 })); } },
   win: { gap: 1, fn: (t) => { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(t + i * 0.12, { type: 'square', f0: f, dur: 0.2, vol: 0.09 })); } },
 };
-
-// --- Einfache Synthwave-Schleife ---
-function startMusic() {
-  const bpm = 104;
-  const step = 60 / bpm / 4;
-  const bass = [36, 36, 48, 36, 36, 36, 46, 36, 34, 34, 46, 34, 31, 31, 43, 33];
-  const arpChords = [[60, 63, 67, 70], [60, 63, 67, 70], [58, 62, 65, 69], [55, 58, 62, 65]];
-  let next = ctx.currentTime + 0.1;
-  let i = 0;
-  const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
-  const note = (t, f, dur, type, vol, cutoff) => {
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    const fl = ctx.createBiquadFilter();
-    fl.type = 'lowpass';
-    fl.frequency.value = cutoff;
-    o.type = type;
-    o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(fl).connect(g).connect(musicGain);
-    o.start(t);
-    o.stop(t + dur + 0.05);
-  };
-  setInterval(() => {
-    if (!ctx || ctx.state !== 'running') { next = ctx ? ctx.currentTime + 0.1 : 0; return; }
-    if (!audio.music) { next = ctx.currentTime + 0.1; return; }
-    while (next < ctx.currentTime + 0.3) {
-      const s = i % 16;
-      const bar = Math.floor(i / 16) % 4;
-      note(next, midi(bass[s]), step * 0.9, 'sawtooth', 0.35, 500);
-      const chord = arpChords[bar];
-      note(next, midi(chord[s % 4] + 12), step * 0.8, 'square', 0.08, 2200);
-      if (s % 4 === 0) {
-        // Kick
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.frequency.setValueAtTime(140, next);
-        o.frequency.exponentialRampToValueAtTime(40, next + 0.12);
-        g.gain.setValueAtTime(0.5, next);
-        g.gain.exponentialRampToValueAtTime(0.0001, next + 0.15);
-        o.connect(g).connect(musicGain);
-        o.start(next);
-        o.stop(next + 0.16);
-      }
-      next += step;
-      i++;
-    }
-  }, 100);
-}

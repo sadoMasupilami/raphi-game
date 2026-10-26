@@ -2,7 +2,7 @@
 // Strategie "Netzwerk zuerst": online ändert sich nichts, offline kommt alles aus dem Cache.
 const VERSION = new URL(self.location).searchParams.get('v') || 'dev';
 const CACHE = `neonnexus-${VERSION}`;
-const FILES = ['audio', 'data', 'game', 'input', 'main', 'progress', 'render', 'sprites']
+const FILES = ['audio', 'data', 'game', 'input', 'main', 'music', 'progress', 'render', 'sprites']
   .map((f) => `js/${f}.js?v=${VERSION}`)
   .concat([`css/style.css?v=${VERSION}`, `manifest.webmanifest?v=${VERSION}`, 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', './']);
 

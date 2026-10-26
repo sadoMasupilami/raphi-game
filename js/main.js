@@ -7,6 +7,7 @@ import { Game } from './game.js';
 import { Renderer } from './render.js';
 import { input } from './input.js';
 import { audio } from './audio.js';
+import { music } from './music.js';
 import { weaponIconURL, playerIconURL } from './sprites.js';
 import { ACHIEVEMENTS, Progress, normalizeProgress, isUnlocked } from './progress.js';
 
@@ -939,11 +940,29 @@ function measurePerf(rawDt) {
     toast('⚙ Sparsame Grafik aktiviert, damit es flüssig läuft', '#9ad8ff');
   }
 }
+// Passenden Song zum Spielzustand wählen
+function updateMusic() {
+  let song = 'menu';
+  let muffled = false;
+  if (game) {
+    const w = game.wave;
+    const bossWave = w === 10 || w === 20 || (w > 20 && w % 5 === 0);
+    if (game.state === 'over') song = game.victory ? 'menu' : 'none';
+    else if (game.state === 'intermission') song = 'shop';
+    else song = bossWave ? 'boss' : 'battle';
+    muffled = game.state === 'paused' || game.state === 'levelup';
+    music.setIntensity(Math.min(1, game.enemies.length / 70 + w / 40));
+  }
+  music.play(song);
+  music.setMuffled(muffled);
+}
+
 function frame(now) {
   const rawDt = Math.max(0, (now - last) / 1000);
   const dt = Math.min(0.033, rawDt);
   last = now;
   if (game && game.state === 'play' && rawDt < 0.5) measurePerf(rawDt);
+  updateMusic();
   if (game) {
     if (game.state === 'play') game.update(dt);
     else if (game.state === 'over' || game.state === 'intermission') game.updateIdle(dt);

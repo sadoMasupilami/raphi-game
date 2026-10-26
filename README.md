@@ -16,6 +16,12 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 - **7 Charaktere:** 3 davon werden über Erfolge freigeschaltet (RONIN, KAI, PRISMA).
 - **Fortschritt:** 13 Erfolge, ein Logbuch mit Statistiken und allen Entdeckungen, ein Tutorial beim ersten Start und ein Highscore pro Schwierigkeit.
 - **Lesbarkeit:** Pfeile am Rand zeigen Boss, Elites und Kapseln außerhalb der Sicht. Explosionen und Laser werden vorher angekündigt.
+- **Soundtrack:** 4 eigene Songs, komplett live synthetisiert:
+  - „Neon-Skyline“ (Menü, Synthwave)
+  - „Overdrive“ (Kampf, 138 BPM, mit Breakdown und Drop)
+  - „Omega-Protokoll“ (Boss, 150 BPM, verzerrter Bass)
+  - „Schwarzmarkt“ (Shop, Groove mit Swing)
+  - Dazu Sidechain-Pumpen, Echo und Hall. Die Kampfmusik wird mit mehr Gegnern dichter, und in Pause und Level-Up klingt sie gedämpft.
 - **Technik:** Grafik und Sound werden komplett im Code erzeugt, ohne externe Assets.
   - Das Spiel lässt sich als App installieren und ist offline spielbar (Service Worker).
   - Auf langsamen Handys schaltet es automatisch auf sparsame Grafik.
@@ -49,4 +55,5 @@ So muss man nicht die 10 Minuten abwarten, die GitHub Pages Dateien im Cache hä
 | `js/progress.js` | Erfolge, Freischaltungen, Gesamtstatistik |
 | `sw.js` | Service Worker (offline spielbar) |
 | `js/input.js` | Touch-Joystick und Tastatur |
-| `js/audio.js` | Synthetisierte Sounds und Musik |
+| `js/audio.js` | Synthetisierte Soundeffekte |
+| `js/music.js` | Soundtrack: Synthesizer, Effekte und Sequencer mit 4 Songs |
