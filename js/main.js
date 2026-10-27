@@ -1,7 +1,7 @@
 // Einstieg: Menüs, HUD, Shop, Level-Up und Spielschleife
 import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, ENEMIES, STAT_DEFS, SPECIAL_DEFS,
-  BASE_STATS, WAVE_MODS, EVOLUTIONS, EVO_COLOR, ULTS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
+  BASE_STATS, WAVE_MODS, bossForWave, ARENAS, EVOLUTIONS, EVO_COLOR, ULTS, COMPANIONS, MAX_COMPANIONS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
 } from './data.js';
 import { Game } from './game.js';
 import { Renderer } from './render.js';
@@ -440,8 +440,9 @@ function afterWave() {
       ${info.interest ? `Zinsen: <span class="big-num">+${info.interest}</span><br>` : ''}
       Guthaben: <span class="big-num">${game.credits}</span>`;
     const left = SHOP_EVERY - (game.wave % SHOP_EVERY);
-    $('#wave-next-shop').textContent = game.wave + 1 === MAX_WAVE
-      ? '⚠ Als Nächstes: der Endboss!'
+    const nextBoss = bossForWave(game.wave + 1);
+    $('#wave-next-shop').textContent = nextBoss
+      ? `⚠ Als Nächstes: ${ENEMIES[nextBoss].name}!`
       : `Schwarzmarkt öffnet in ${left} Welle${left === 1 ? '' : 'n'}.`;
     show('wave');
   }
@@ -494,8 +495,8 @@ function renderShop(info) {
   }
   $('#shop-offers').innerHTML = g.shopOffers.map((o, i) => {
     if (!o) return `<div class="offer empty">VERKAUFT</div>`;
-    const tier = o.type === 'weapon' ? o.tier : ITEMS[o.id].tier;
-    const tc = TIER_COLORS[tier];
+    const tier = o.type === 'weapon' ? o.tier : o.type === 'comp' ? 1 : ITEMS[o.id].tier;
+    const tc = o.type === 'comp' ? COMPANIONS[o.id].color : TIER_COLORS[tier];
     let icon;
     let title;
     let desc;
@@ -504,6 +505,11 @@ function renderShop(info) {
       icon = `<img src="${weaponIconURL(o.id, ELEMENTS[d.elem].color)}" alt="">`;
       title = d.name;
       desc = weaponShopDesc(o.id, o.tier);
+    } else if (o.type === 'comp') {
+      const C = COMPANIONS[o.id];
+      icon = C.icon;
+      title = C.name;
+      desc = `${C.desc}<br><small>Begleiter ${g.companions.length}/${MAX_COMPANIONS}</small>`;
     } else {
       const it = ITEMS[o.id];
       icon = it.icon;
@@ -514,7 +520,7 @@ function renderShop(info) {
     return `<div class="offer ${o.locked ? 'locked' : ''}" style="--tc:${tc}">
       <div class="offer-head"><div class="card-icon">${icon}</div>
         <div class="card-body"><div class="card-title">${title}</div>
-        <div class="card-tier">${o.type === 'weapon' ? 'WAFFE' : 'ITEM'} · ${TIER_NAMES[tier]}</div></div></div>
+        <div class="card-tier">${o.type === 'weapon' ? `WAFFE · ${TIER_NAMES[tier]}` : o.type === 'comp' ? 'BEGLEITER' : `ITEM · ${TIER_NAMES[tier]}`}</div></div></div>
       <div class="card-desc">${desc}</div>
       <div class="offer-bottom">
         <button class="btn lock ${o.locked ? 'on' : ''}" data-lock="${i}" aria-label="Sperren">${o.locked ? '🔒' : '🔓'}</button>
@@ -527,6 +533,8 @@ function renderShop(info) {
       const res = g.buy(i);
       if (res === 'money') { audio.play('error'); toast('Nicht genug Credits', '#ff3d6a'); return; }
       if (res === 'slots') { audio.play('error'); toast('Alle 6 Waffenplätze belegt – verkaufe oder verschmelze eine Waffe', '#ff3d6a'); return; }
+      if (res === 'comps') { audio.play('error'); toast(`Du hast schon ${MAX_COMPANIONS} Begleiter`, '#ff3d6a'); return; }
+      if (res === 'comp') toast('Neuer Begleiter an deiner Seite!', '#50ffc8');
       if (res === 'type') { audio.play('error'); toast(`${g.char.name} kann nur ${g.char.onlyType === 'melee' ? 'Nahkampf' : 'Fernkampf'}waffen tragen`, '#ff3d6a'); return; }
       if (res === 'max') { audio.play('error'); toast('Dieses Item kannst du nur einmal haben', '#ff3d6a'); return; }
       if (res === 'merged') toast('Waffe verschmolzen! ⬆', '#ffe94a');
@@ -573,9 +581,13 @@ function renderInventory() {
   const counts = {};
   for (const id of g.items) counts[id] = (counts[id] || 0) + 1;
   const ids = Object.keys(counts);
-  $('#inv-items').innerHTML = ids.length
-    ? ids.map((id) => `<button class="slot" data-item="${id}" style="--tc:${TIER_COLORS[ITEMS[id].tier]}">${ITEMS[id].icon}${counts[id] > 1 ? `<span class="count">${counts[id]}</span>` : ''}</button>`).join('')
+  const comps = g.companions.map((c) => `<button class="slot" data-comp="${c.id}" style="--tc:${COMPANIONS[c.id].color}">${COMPANIONS[c.id].icon}</button>`).join('');
+  $('#inv-items').innerHTML = (ids.length || comps)
+    ? comps + ids.map((id) => `<button class="slot" data-item="${id}" style="--tc:${TIER_COLORS[ITEMS[id].tier]}">${ITEMS[id].icon}${counts[id] > 1 ? `<span class="count">${counts[id]}</span>` : ''}</button>`).join('')
     : '<p class="hint" style="grid-column:1/-1">Noch keine Items.</p>';
+  $('#inv-items').querySelectorAll('[data-comp]').forEach((el) => {
+    el.onclick = () => { const C = COMPANIONS[el.dataset.comp]; toast(`${C.icon} ${C.name}: ${C.desc}`, C.color); };
+  });
   $('#inv-items').querySelectorAll('[data-item]').forEach((el) => {
     el.onclick = () => {
       const it = ITEMS[el.dataset.item];
@@ -723,12 +735,15 @@ function renderHowto() {
   $('#howto').innerHTML = `
     <p>🕹️ <b>Steuerung:</b> Leg den Daumen irgendwo auf den Bildschirm und zieh – so läufst du. Deine Waffen zielen und feuern <b>automatisch</b>. Am PC: WASD oder Pfeiltasten.</p>
     <p>💨 <b>Dash:</b> Tippe auf <b>DASH</b> (am PC: Leertaste) für einen kurzen Sprint, bei dem du unverwundbar bist. Perfekt, um durch Gegnerhorden zu entkommen!</p>
-    <p>⏱️ <b>Ziel:</b> Überlebe 20 Wellen. In Welle 10 wartet der <b>WÄCHTER</b>, in Welle 20 der <b>OMEGA-KERN</b>.</p>
+    <p>⏱️ <b>Ziel:</b> Überlebe 20 Wellen und besiege am Ende den <b>OMEGA-KERN</b>.</p>
     <p>💠 <b>Daten-Chips</b> von besiegten Gegnern geben Erfahrung (Level-Ups) und Credits. Kapseln <b>?</b> enthalten Items, grüne Kreuze heilen.</p>
     <p>🛒 Alle ${SHOP_EVERY} Wellen öffnet der <b>Schwarzmarkt</b>. Zwei gleiche Waffen gleicher Stufe kannst du zu einer stärkeren <b>verschmelzen</b> (bis Stufe IV). Mit 🔒 behältst du ein Angebot für später.</p>
     <p>❤️ Zu Beginn jeder Welle wirst du vollständig geheilt.</p>
     <p>🌟 <b>Ultimate:</b> Jeder Kill lädt deine Spezialfähigkeit auf. Ist der goldene Knopf voll, tippe drauf (am PC: Q). Jeder Charakter hat eine eigene!</p>
     <p>⭐ <b>Evolution:</b> Bringe eine Waffe auf Stufe IV und besitze das passende Item – dann wird sie nach der Welle zur <b>legendären Waffe</b>. Welches Item passt, steht in der Waffen-Info im Shop.</p>
+    <p>🗺️ <b>Arenen:</b> Alle 5 Wellen wechselt der Schauplatz: Neon-Stadt, Kryo-Labor (rutschiges Eis), Schrott-Fabrik (Förderbänder) und Reaktorkern (Plasma-Felder, in denen auch Gegner verbrennen).</p>
+    <p>👾 <b>Bosse</b> warten in Welle 5, 10, 15 und 20.</p>
+    <p>🛸 <b>Begleiter:</b> Im Schwarzmarkt tauchen manchmal Helfer auf – du kannst bis zu ${MAX_COMPANIONS} gleichzeitig haben.</p>
     <h3>ELEMENTE</h3>
     <div class="elem-grid">${elems}</div>
     <h3>REAKTIONEN</h3>
@@ -799,6 +814,8 @@ const ENEMY_DESC = {
   phaser: 'Teleportiert sich neben dich. Achte auf den Kreis!',
   turret: 'Bewegt sich nicht, feuert aber gezielte Laser.',
   healer: 'Heilt Gegner in der Nähe. Zuerst ausschalten!',
+  mother: 'Boss der Welle 5: brütet Drohnen aus, feuert Fächer-Salven und platzt beim Tod.',
+  titan: 'Boss der Welle 15: rotierende Laserstrahlen – achte auf die roten Warnlinien!',
   guardian: 'Zwischenboss der Welle 10: Kugelringe und Sprint-Angriffe.',
   omega: 'Endboss der Welle 20. Wird bei halber Energie wütend.',
 };
@@ -1038,7 +1055,9 @@ function updateMusic() {
   if (song !== lastSongName) {
     lastSongName = song;
     if (game && game.state === 'play' && SONGS[song] && audio.music) {
-      setTimeout(() => toast(`♪ ${SONGS[song].name.toUpperCase()}`, '#ff2bd6'), 1600);
+      setTimeout(() => {
+        if (game && game.state === 'play') toast(`♪ ${SONGS[song].name.toUpperCase()}`, '#ff2bd6');
+      }, 1600);
     }
   }
 }

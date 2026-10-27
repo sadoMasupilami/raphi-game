@@ -8,6 +8,9 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 
 - **Steuerung:** Ein Joystick erscheint dort, wo der Daumen den Bildschirm berührt. Alle Waffen zielen und feuern automatisch. Mit dem **Dash**-Knopf (am PC Leertaste) weicht man kurz und unverwundbar aus.
 - **20 Wellen:** Welle 10 hat einen Zwischenboss (WÄCHTER), Welle 20 den Endboss (OMEGA-KERN). Nach dem Sieg kann man im Endlos-Modus weiterspielen.
+- **4 Arenen:** Neon-Stadt, Kryo-Labor (rutschiges Eis), Schrott-Fabrik (Förderbänder) und Reaktorkern (Plasma-Felder). Die Arena wechselt alle 5 Wellen.
+- **4 Bosse:** Schwarm-Mutter (Welle 5), Wächter (10), Laser-Titan (15) und Omega-Kern (20).
+- **Begleiter:** Sammel-Drohne, Heil-Bot, Schild-Satellit und Geschütz-Drohne, maximal 2 gleichzeitig.
 - **Wellen-Modifikatoren:** einzelne Wellen sind besonders, z. B. Turbo, Panzerung, Schwarm, Explosiv oder Elite-Jagd.
 - **4 Elemente und 6 Reaktionen:** 🔥 Feuer, ❄️ Eis, ⚡ Blitz und 🌀 Void. Ein zweites Element auf einem markierten Gegner löst eine Reaktion aus.
 - **Ultimate-Fähigkeiten:** Jeder Charakter hat eine eigene Spezialattacke, die sich durch Kills auflädt (goldener Knopf, am PC Q).

@@ -362,6 +362,8 @@ export const ENEMIES = {
   healer: { name: 'Heiler-Drohne', hp: 18, speed: 85, dmg: 4, r: 13, xp: 3, color: '#d4ff6b', shape: 'cross', from: 12, weight: 1.2,
     heal: { cd: 2.6, radius: 150, amount: 0.15, dist: 250 } },
   mini: { name: 'Splitter', hp: 6, speed: 135, dmg: 4, r: 8, xp: 0, color: '#7dff5a', shape: 'tri', from: 99, weight: 0 },
+  mother: { name: 'SCHWARM-MUTTER', hp: 1100, speed: 52, dmg: 10, r: 44, xp: 20, color: '#ff8c1a', shape: 'boss3', boss: true, fixedHp: true },
+  titan: { name: 'LASER-TITAN', hp: 9500, speed: 44, dmg: 17, r: 50, xp: 40, color: '#ff2222', shape: 'boss4', boss: true, fixedHp: true },
   guardian: { name: 'WÄCHTER', hp: 3200, speed: 62, dmg: 14, r: 40, xp: 30, color: '#ff3d9a', shape: 'boss1', boss: true, fixedHp: true },
   omega: { name: 'OMEGA-KERN', hp: 26000, speed: 58, dmg: 20, r: 56, xp: 0, color: '#ff2244', shape: 'boss2', boss: true, fixedHp: true },
 };
@@ -381,6 +383,51 @@ export const WAVE_MODS = {
   elitejagd: { name: 'ELITE-JAGD', icon: '👑', desc: 'Viele Elite-Gegner – mit Beute-Kapseln', color: '#ff3d6a' },
 };
 export const MOD_WAVES = [6, 9, 13, 16, 18];
+
+// Bosse pro Welle (Endlos-Modus: alle 5 Wellen ein Boss der Reihe nach)
+export const BOSS_WAVES = { 5: 'mother', 10: 'guardian', 15: 'titan', 20: 'omega' };
+export const ENDLESS_BOSSES = ['mother', 'guardian', 'titan', 'omega'];
+export function bossForWave(w) {
+  if (BOSS_WAVES[w]) return BOSS_WAVES[w];
+  if (w > 20 && w % 5 === 0) return ENDLESS_BOSSES[(w / 5 - 5) % 4];
+  return null;
+}
+
+// Arenen: wechseln mit der Musik alle 5 Wellen
+export const ARENAS = {
+  city: {
+    name: 'NEON-STADT', icon: '🌃', desc: 'Die Straßen der Megacity',
+    floor: '#070a18', grid: 'rgba(60,140,255,0.09)', accent: 'rgba(255,60,200,0.07)', border: '#00f0ff', hazard: null,
+  },
+  lab: {
+    name: 'KRYO-LABOR', icon: '🧊', desc: 'Vorsicht: rutschige Eisflächen!',
+    floor: '#06121a', grid: 'rgba(120,230,255,0.1)', accent: 'rgba(200,250,255,0.08)', border: '#9df3ff', hazard: 'ice',
+  },
+  factory: {
+    name: 'SCHROTT-FABRIK', icon: '🏭', desc: 'Förderbänder schieben dich und die Gegner herum!',
+    floor: '#120c06', grid: 'rgba(255,150,40,0.08)', accent: 'rgba(255,200,60,0.07)', border: '#ffb340', hazard: 'conveyor',
+  },
+  reactor: {
+    name: 'REAKTORKERN', icon: '☢️', desc: 'Plasma-Felder flammen auf – auch Gegner verbrennen darin!',
+    floor: '#14050a', grid: 'rgba(255,40,90,0.1)', accent: 'rgba(255,120,40,0.08)', border: '#ff2255', hazard: 'lava',
+  },
+};
+export function arenaForWave(w) {
+  if (w > 20) return ['city', 'lab', 'factory', 'reactor'][Math.floor((w - 21) / 5) % 4];
+  if (w < 5) return 'city';
+  if (w <= 10) return 'lab';
+  if (w < 15) return 'factory';
+  return 'reactor';
+}
+
+// Begleiter: im Shop kaufbar, maximal 2
+export const COMPANIONS = {
+  sammler: { name: 'Sammel-Drohne', icon: '🛸', color: '#50ffc8', price: 32, desc: 'Fliegt herum und sammelt Daten-Chips für dich ein.' },
+  heiler: { name: 'Heil-Bot', icon: '💚', color: '#4dff7a', price: 42, desc: 'Repariert dich alle 3 Sekunden ein bisschen.' },
+  schild: { name: 'Schild-Satellit', icon: '🛰️', color: '#7db8ff', price: 48, desc: 'Kreist um dich und fängt feindliche Kugeln ab.' },
+  geschuetz: { name: 'Geschütz-Drohne', icon: '🔫', color: '#ffb340', price: 44, desc: 'Begleitet dich und feuert auf Gegner.' },
+};
+export const MAX_COMPANIONS = 2;
 
 export const MAX_WAVE = 20;
 export const MINIBOSS_WAVE = 10;

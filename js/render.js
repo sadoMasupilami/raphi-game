@@ -1,5 +1,5 @@
 // Zeichnet die Spielwelt auf das Canvas
-import { ELEMENTS, WEAPONS } from './data.js';
+import { ELEMENTS, WEAPONS, ARENAS, COMPANIONS } from './data.js';
 import { ARENA } from './game.js';
 import { input } from './input.js';
 import { drawSprite, dotSprite, playerSprite, eyeSprite, pickupSprite, weaponSprite, hexToRgba } from './sprites.js';
@@ -71,7 +71,8 @@ export class Renderer {
     const cy = this.camY + sy;
     ctx.setTransform(z, 0, 0, z, -cx * z, -cy * z);
 
-    this.drawArena(ctx, cx, cy);
+    this.drawArena(ctx, cx, cy, game.arena);
+    this.drawFeatures(ctx, game);
     this.drawMarkers(ctx, game);
     this.drawZones(ctx, game);
     this.drawPickups(ctx, game);
@@ -135,15 +136,16 @@ export class Renderer {
     this.drawArena(ctx, cx, cy);
   }
 
-  drawArena(ctx, cx, cy) {
+  drawArena(ctx, cx, cy, arenaId = 'city') {
+    const A = ARENAS[arenaId] || ARENAS.city;
     const x0 = Math.max(0, cx);
     const y0 = Math.max(0, cy);
     const x1 = Math.min(ARENA.w, cx + this.viewW);
     const y1 = Math.min(ARENA.h, cy + this.viewH);
-    ctx.fillStyle = '#070a18';
+    ctx.fillStyle = A.floor;
     ctx.fillRect(0, 0, ARENA.w, ARENA.h);
     const step = 60;
-    ctx.strokeStyle = 'rgba(60,140,255,0.09)';
+    ctx.strokeStyle = A.grid;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
@@ -151,7 +153,7 @@ export class Renderer {
     ctx.stroke();
     // Akzentlinien
     if (!this.lowFx) {
-    ctx.strokeStyle = 'rgba(255,60,200,0.07)';
+    ctx.strokeStyle = A.accent;
     ctx.lineWidth = 3;
     ctx.beginPath();
     for (let x = Math.ceil(x0 / 300) * 300; x <= x1; x += 300) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
@@ -159,10 +161,10 @@ export class Renderer {
     ctx.stroke();
     }
     // Rand
-    ctx.strokeStyle = 'rgba(0,240,255,0.18)';
+    ctx.strokeStyle = hexToRgba(A.border, 0.18);
     ctx.lineWidth = 12;
     ctx.strokeRect(0, 0, ARENA.w, ARENA.h);
-    ctx.strokeStyle = '#00f0ff';
+    ctx.strokeStyle = A.border;
     ctx.lineWidth = 3;
     ctx.strokeRect(0, 0, ARENA.w, ARENA.h);
   }
@@ -198,6 +200,82 @@ export class Renderer {
     }
   }
 
+  // Eisflächen, Förderbänder und Plasma-Felder der Arena
+  drawFeatures(ctx, game) {
+    const t = game.time;
+    for (const f of game.features) {
+      if (f.kind === 'ice') {
+        ctx.fillStyle = 'rgba(160,235,255,0.13)';
+        ctx.strokeStyle = 'rgba(200,250,255,0.45)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Risse im Eis
+        ctx.strokeStyle = 'rgba(220,250,255,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const a = f.seed + i * 1.3;
+          ctx.moveTo(f.x + Math.cos(a) * f.r * 0.15, f.y + Math.sin(a) * f.r * 0.15);
+          ctx.lineTo(f.x + Math.cos(a + 0.3) * f.r * 0.85, f.y + Math.sin(a + 0.3) * f.r * 0.85);
+        }
+        ctx.stroke();
+      } else if (f.kind === 'conveyor') {
+        const x = f.x - f.w / 2;
+        const y = f.y - f.h / 2;
+        ctx.fillStyle = 'rgba(40,28,14,0.85)';
+        ctx.fillRect(x, y, f.w, f.h);
+        ctx.strokeStyle = 'rgba(255,179,64,0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, f.w, f.h);
+        // Wandernde Pfeile zeigen die Richtung
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, f.w, f.h);
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(255,179,64,0.55)';
+        ctx.lineWidth = 4;
+        const len = f.dx ? f.w : f.h;
+        const off = ((t * f.speed) % 50) * (f.dx || f.dy);
+        ctx.beginPath();
+        for (let s = -50; s < len + 50; s += 50) {
+          const d = s + off - len / 2;
+          if (f.dx) {
+            const px = f.x + d;
+            ctx.moveTo(px - 10 * f.dx, f.y - 18); ctx.lineTo(px + 6 * f.dx, f.y); ctx.lineTo(px - 10 * f.dx, f.y + 18);
+          } else {
+            const py = f.y + d;
+            ctx.moveTo(f.x - 18, py - 10 * f.dy); ctx.lineTo(f.x, py + 6 * f.dy); ctx.lineTo(f.x + 18, py - 10 * f.dy);
+          }
+        }
+        ctx.stroke();
+        ctx.restore();
+      } else if (f.kind === 'lava') {
+        const on = f.state === 'on';
+        const warn = f.state === 'warn';
+        const pulse = 0.5 + 0.5 * Math.sin(t * (warn ? 18 : 4));
+        ctx.fillStyle = on ? `rgba(255,80,20,${0.35 + 0.15 * pulse})` : warn ? `rgba(255,60,30,${0.1 + 0.15 * pulse})` : 'rgba(120,20,30,0.25)';
+        ctx.strokeStyle = on ? '#ffb340' : warn ? `rgba(255,90,40,${0.5 + 0.5 * pulse})` : 'rgba(255,60,90,0.3)';
+        ctx.lineWidth = on ? 4 : 2;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        if (on && !this.lowFx) {
+          ctx.globalCompositeOperation = 'lighter';
+          const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * 1.3);
+          g.addColorStop(0, 'rgba(255,140,40,0.35)');
+          g.addColorStop(1, 'rgba(255,60,20,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(f.x - f.r * 1.3, f.y - f.r * 1.3, f.r * 2.6, f.r * 2.6);
+          ctx.globalCompositeOperation = 'source-over';
+        }
+      }
+    }
+  }
+
   // Napalm-Flächen, verzögerte Explosionen, Teleport-Ziele, Laser-Visiere
   drawZones(ctx, game) {
     for (const z of game.zones) {
@@ -230,6 +308,30 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(b.x, b.y, e.r + 14 * (1 - k), 0, Math.PI * 2);
         ctx.stroke();
+      }
+      if (e.beams) {
+        for (const b of e.beams) {
+          const ex = e.x + Math.cos(b.ang) * 1100;
+          const ey = e.y + Math.sin(b.ang) * 1100;
+          ctx.lineCap = 'round';
+          if (b.state === 'warn') {
+            ctx.strokeStyle = `rgba(255,40,40,${0.35 + 0.45 * Math.abs(Math.sin(game.time * 22))})`;
+            ctx.lineWidth = 3;
+          } else {
+            ctx.strokeStyle = 'rgba(255,50,50,0.85)';
+            ctx.lineWidth = 18;
+          }
+          ctx.beginPath();
+          ctx.moveTo(e.x, e.y);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+          if (b.state === 'fire') {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+          }
+          ctx.lineCap = 'butt';
+        }
       }
       if (e.laserState === 'charge' || e.laserState === 'fire') {
         const L = e.def.laser;
@@ -394,6 +496,7 @@ export class Renderer {
     const p = game.player;
     if (game.state === 'over' && p.hp <= 0) return;
     this.drawUlt(ctx, game);
+    this.drawCompanions(ctx, game);
     // Waffen
     for (const w of game.weapons) {
       const d = WEAPONS[w.id];
@@ -443,6 +546,33 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(p.x, p.y, game.magnetR, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  drawCompanions(ctx, game) {
+    for (const c of game.companions) {
+      const C = COMPANIONS[c.id];
+      const bob = Math.sin(game.time * 5 + c.a) * 2;
+      ctx.save();
+      ctx.translate(c.x, c.y + bob);
+      ctx.fillStyle = hexToRgba(C.color, 0.25);
+      ctx.strokeStyle = C.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (c.id === 'sammler') { ctx.moveTo(0, -9); ctx.lineTo(9, 0); ctx.lineTo(0, 9); ctx.lineTo(-9, 0); ctx.closePath(); }
+      else if (c.id === 'heiler') { ctx.rect(-3, -9, 6, 18); ctx.rect(-9, -3, 18, 6); }
+      else if (c.id === 'schild') { for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; ctx.lineTo(Math.cos(a) * 9, Math.sin(a) * 9); } ctx.closePath(); }
+      else { ctx.moveTo(10, 0); ctx.lineTo(-7, -7); ctx.lineTo(-7, 7); ctx.closePath(); }
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      if (c.id === 'schild') {
+        ctx.strokeStyle = 'rgba(125,184,255,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 15, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
   }
 
   drawUlt(ctx, game) {

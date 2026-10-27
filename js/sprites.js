@@ -99,6 +99,22 @@ function enemyPath(g, shape, r) {
       break;
     }
     case 'boss1': poly(g, 8, r, Math.PI / 8); break;
+    case 'boss3': { // Schwarm-Mutter: Kern mit Brut-Beulen
+      g.beginPath();
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const rr = r * (i % 4 < 2 ? 1 : 0.82);
+        g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      g.closePath();
+      break;
+    }
+    case 'boss4': // Laser-Titan: gepanzertes Quadrat
+      g.beginPath();
+      g.moveTo(-r, -r * 0.6); g.lineTo(-r * 0.6, -r); g.lineTo(r * 0.6, -r); g.lineTo(r, -r * 0.6);
+      g.lineTo(r, r * 0.6); g.lineTo(r * 0.6, r); g.lineTo(-r * 0.6, r); g.lineTo(-r, r * 0.6);
+      g.closePath();
+      break;
     case 'boss2': poly(g, 12, r, 0); break;
     default: g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2);
   }

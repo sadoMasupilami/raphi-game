@@ -6,6 +6,8 @@ export const ACHIEVEMENTS = [
   { id: 'guardian', icon: '🛡️', name: 'Wächter-Bezwinger', desc: 'Besiege den WÄCHTER in Welle 10.', unlocks: 'kai' },
   { id: 'melee10', icon: '⚔️', name: 'Klingentanz', desc: 'Überlebe Welle 10 mit VEX oder BROCK.', unlocks: 'ronin' },
   { id: 'allReactions', icon: '🧪', name: 'Elementar-Meister', desc: 'Entdecke alle 6 Reaktionen.', unlocks: 'prisma' },
+  { id: 'mother', icon: '🐛', name: 'Kammerjäger', desc: 'Besiege die SCHWARM-MUTTER.' },
+  { id: 'titan', icon: '🗿', name: 'Titanenfall', desc: 'Besiege den LASER-TITAN.' },
   { id: 'win', icon: '🏆', name: 'Retter der Stadt', desc: 'Besiege den OMEGA-KERN.' },
   { id: 'winHard', icon: '👑', name: 'Legende', desc: 'Gewinne auf Schwer.' },
   { id: 'tier4', icon: '⚒️', name: 'Meisterschmied', desc: 'Schmiede eine Waffe der Stufe IV.' },
@@ -90,6 +92,8 @@ export class Progress {
         break;
       case 'boss':
         if (data === 'guardian') this.unlock('guardian');
+        if (data === 'mother') this.unlock('mother');
+        if (data === 'titan') this.unlock('titan');
         if (data === 'omega') {
           this.unlock('win');
           if (game.diffId === 'schwer') this.unlock('winHard');
