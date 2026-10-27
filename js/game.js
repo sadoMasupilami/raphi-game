@@ -3,7 +3,7 @@ import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, reactionKey, WEAPONS, ITEMS, CHARACTERS, ENEMIES, DIFFICULTIES,
   BASE_STATS, UPGRADES, TIER_PRICE, BOLT_SHOCK_TIME, SHOCK_BONUS,
   MAX_WAVE, MAX_WEAPONS, waveDuration, WAVE_MODS, MOD_WAVES, EVOLUTIONS, ULTS,
-  bossForWave, ARENAS, arenaForWave, COMPANIONS, MAX_COMPANIONS, TIME_ATTACK_SECONDS,
+  bossForWave, ARENAS, arenaForWave, COMPANIONS, MAX_COMPANIONS, TIME_ATTACK_SECONDS, BOSS_LINES,
 } from './data.js';
 import { audio } from './audio.js';
 import { input } from './input.js';
@@ -108,6 +108,7 @@ export class Game {
     this.glitchT = 0;
     this.lights = [];
     this.lastFlash = 0;
+    this.speech = null;
     // Arena & Begleiter
     this.arena = 'city';
     this.features = [];
@@ -632,6 +633,7 @@ export class Game {
       this.hooks.boss(e);
       this.focusCam(x, y, 1.3, 1.7);
       this.slowmo(1.5, 0.25);
+      this.bossTalk(e, 'intro');
       this.screenFlash('#ff2255', 0.3);
       this.shake = Math.max(this.shake, 10);
     }
@@ -1695,6 +1697,7 @@ export class Game {
       for (let i = 0; i < 3; i++) this.dropPickup(e.x, e.y, 'crate', 0);
       this.score += e.type === 'omega' ? 5000 : 1500;
       this.bossesKilled++;
+      this.bossTalk(e, 'death');
       this.emit('boss', e.type);
       if (this.mode === 'bossrush' && !(e.type === 'omega' && !this.endless)) {
         const bonus = 80 + this.wave * 6;
@@ -1833,6 +1836,12 @@ export class Game {
       if (e.frozen <= 0) {
         const slow = e.slowT > 0 ? (e.def.boss ? 0.8 : 0.55) : 1;
         const spd = e.speed * slow;
+        if (e.def.boss && !e.saidRage && e.hp < e.maxHp * 0.5) {
+          e.saidRage = true;
+          this.bossTalk(e, 'rage');
+          this.screenFlash(e.def.color, 0.25);
+          this.shake = Math.max(this.shake, 8);
+        }
         if (e.type === 'mother') {
           this.updateMother(e, dt, nx, ny, spd);
         } else if (e.type === 'titan') {
@@ -2084,6 +2093,14 @@ export class Game {
       default: // 'hold' – steht still, während die Laser feuern
         if (e.phaseT <= 0) this.bossChase(e, enraged);
     }
+  }
+
+  // Sprechblase über dem Boss + Hinweis oben
+  bossTalk(e, kind) {
+    const line = BOSS_LINES[e.type] && BOSS_LINES[e.type][kind];
+    if (!line) return;
+    this.speech = { follow: kind === 'death' ? null : e, x: e.x, y: e.y - e.r - 24, text: line, t: 3.2, max: 3.2, color: e.def.color };
+    this.hooks.toast(`${e.def.name}: „${line}“`, e.def.color);
   }
 
   updateBoss(e, dt, nx, ny, dist, spd) {
@@ -2471,6 +2488,14 @@ export class Game {
   // Effekte auch in Pausen ausklingen lassen
   realtimeFx(dt) {
     if (this.cam.t > 0) this.cam.t -= dt;
+    if (this.speech) {
+      this.speech.t -= dt;
+      if (this.speech.follow && !this.speech.follow.dead) {
+        this.speech.x = this.speech.follow.x;
+        this.speech.y = this.speech.follow.y - this.speech.follow.r - 24;
+      }
+      if (this.speech.t <= 0) this.speech = null;
+    }
     if (this.glitchT > 0) this.glitchT -= dt;
     if (this.flashFx) {
       this.flashFx.a -= dt * 1.8;

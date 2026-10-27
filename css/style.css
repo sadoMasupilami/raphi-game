@@ -512,6 +512,42 @@ h3 {
 .skin-dot.locked { opacity: 0.35; }
 .stat-hist { font-size: 13px; }
 
+/* ---------- Comic-Intro ---------- */
+#screen-intro { background: radial-gradient(ellipse at 50% 20%, rgba(255, 43, 214, 0.15), transparent 60%), #04050c; z-index: 25; }
+.comic { width: 100%; max-width: 520px; margin: auto; text-align: center; }
+.comic-art {
+  position: relative; height: 260px; border-radius: 16px; overflow: hidden;
+  border: 2px solid rgba(0, 240, 255, 0.4); background: linear-gradient(180deg, #0b0420, #1a0630 60%, #04050c);
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.15); margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  animation: panelIn 0.5s ease-out;
+}
+@keyframes panelIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+.comic-text { min-height: 96px; font-size: 19px; line-height: 1.4; padding: 0 6px; }
+.comic-dots { margin: 10px 0 4px; letter-spacing: 6px; color: var(--muted); }
+.comic-dots b { color: var(--cyan); }
+.art-building { position: absolute; bottom: 0; background: repeating-linear-gradient(0deg, transparent 0 10px, rgba(255, 233, 74, 0.18) 10px 13px), #0d0a22; border-top: 2px solid var(--bc); box-shadow: 0 0 12px var(--bc); }
+.art-sign { position: absolute; top: 26px; font-family: Orbitron, sans-serif; font-weight: 900; font-size: 26px; color: var(--pink); text-shadow: 0 0 14px var(--pink); animation: flicker 3s infinite; }
+.art-core { width: 130px; height: 130px; border-radius: 50%; border: 6px solid #ff2244; box-shadow: 0 0 40px #ff2244, inset 0 0 30px #ff2244; display: flex; align-items: center; justify-content: center; animation: corePulse 1.2s ease-in-out infinite; }
+.art-core div { width: 46px; height: 46px; border-radius: 50%; background: #ff2244; box-shadow: 0 0 30px #ff2244; }
+@keyframes corePulse { 50% { transform: scale(1.08); box-shadow: 0 0 70px #ff2244, inset 0 0 40px #ff2244; } }
+.art-row img { width: 72px; height: 72px; animation: bob 1.6s ease-in-out infinite; }
+.art-row img:nth-child(2) { animation-delay: 0.3s; }
+.art-row img:nth-child(3) { animation-delay: 0.6s; }
+.art-row img:nth-child(4) { animation-delay: 0.9s; }
+@keyframes bob { 50% { transform: translateY(-10px); } }
+.art-mission { font-family: Orbitron, sans-serif; font-weight: 900; font-size: 22px; line-height: 1.6; color: var(--yellow); text-shadow: 0 0 14px var(--yellow); }
+/* ---------- Abspann ---------- */
+.credits-screen { z-index: 40; background: #04050c; overflow: hidden; align-items: flex-start; }
+.credits-roll { width: 100%; max-width: 520px; margin: 0 auto; text-align: center; animation: roll 32s linear forwards; padding-top: 100vh; }
+@keyframes roll { to { transform: translateY(-100%); } }
+.credits-roll h2 { font-size: 30px; margin-top: 40px; }
+.credits-roll h3 { text-align: center; margin-top: 34px; }
+.credits-roll p { font-size: 18px; line-height: 1.5; color: var(--text); }
+.credits-btn { position: fixed; bottom: calc(var(--safe-b) + 20px); left: 50%; transform: translateX(-50%); }
+/* Controller-Fokus */
+.pad-focus { outline: 3px solid var(--yellow) !important; outline-offset: 2px; box-shadow: 0 0 18px rgba(255, 233, 74, 0.7) !important; }
+
 /* ---------- Logbuch ---------- */
 .codex-totals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
 .codex-totals div { background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 6px 2px; font-size: 12px; color: var(--muted); }

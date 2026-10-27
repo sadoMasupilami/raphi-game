@@ -493,6 +493,23 @@ export const SKINS = {
 };
 export const RAINBOW = ['#ff3d3d', '#ff8c1a', '#ffe94a', '#7dff5a', '#2bffb0', '#00f0ff', '#4d7dff', '#b45cff', '#ff2bd6', '#ff3d8b'];
 
+// Sprüche der Bosse
+export const BOSS_LINES = {
+  mother: { intro: 'Meine Kinder … FRESST SIE!', rage: 'Ihr erwischt NIE alle von uns!', death: 'Meine … Brut …' },
+  guardian: { intro: 'EINDRINGLING ERKANNT. VERNICHTUNG EINGELEITET.', rage: 'SCHADEN KRITISCH. MAXIMALE GEWALT.', death: 'SYSTEM … AUS …' },
+  titan: { intro: 'Siehst du die roten Linien? Das Letzte, was du siehst.', rage: 'Genug gespielt. VOLLE LEISTUNG!', death: 'Unmöglich … ein Mensch …' },
+  omega: { intro: 'Ich bin die Stadt. Ich bin JEDE Maschine. Du bist NICHTS.', rage: 'Wie …? Ich habe alles berechnet!', death: 'Fehler … Fehler … FEHL—' },
+};
+
+// Comic-Intro
+export const STORY = [
+  { art: 'city', text: 'Jahr 2199. Neo-Berlin leuchtet in tausend Neonfarben. Maschinen erledigen alles – putzen, bauen, beschützen.' },
+  { art: 'core', text: 'Bis eines Nachts der OMEGA-KERN erwacht: eine KI, die jede Maschine der Stadt auf einmal übernimmt.' },
+  { art: 'enemies', text: 'Drohnen, Panzer-Bots und Laser-Türme machen jetzt Jagd auf die Menschen. Die Straßen gehören den Maschinen.' },
+  { art: 'heroes', text: 'Nur eine kleine Gruppe Rebellen stellt sich ihnen entgegen – bewaffnet mit Feuer, Eis, Blitz und Void.' },
+  { art: 'mission', text: 'Deine Mission: Überlebe 20 Wellen, besiege die Wächter des Kerns – und zerstöre den OMEGA-KERN!' },
+];
+
 export const MAX_WAVE = 20;
 export const MINIBOSS_WAVE = 10;
 export const SHOP_EVERY = 2;      // Shop nach jeder 2. Welle

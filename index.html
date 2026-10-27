@@ -57,7 +57,7 @@
         <button class="btn primary big" id="btn-play">▶ SPIELEN</button>
         <button class="btn" id="btn-lab">🔬 LABOR &amp; MISSIONEN <span class="shard-badge" id="menu-shards"></span></button>
         <button class="btn" id="btn-codex">📖 LOGBUCH &amp; ERFOLGE</button>
-        <button class="btn" id="btn-howto">ANLEITUNG</button>
+        <button class="btn" id="btn-howto">ANLEITUNG &amp; STORY</button>
         <button class="btn" id="btn-settings">EINSTELLUNGEN</button>
       </div>
       <div class="highscores" id="highscores"></div>
@@ -190,6 +190,25 @@
       <div class="meta-grid" id="lab-upgrades"></div>
       <button class="btn primary" id="btn-lab-back">ZURÜCK</button>
     </div>
+  </section>
+
+  <!-- Comic-Intro -->
+  <section id="screen-intro" class="screen hidden">
+    <div class="comic">
+      <div class="comic-art" id="comic-art"></div>
+      <div class="comic-text" id="comic-text"></div>
+      <div class="comic-dots" id="comic-dots"></div>
+      <div class="row-buttons">
+        <button class="btn" id="btn-intro-skip">ÜBERSPRINGEN</button>
+        <button class="btn primary" id="btn-intro-next">WEITER ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Abspann -->
+  <section id="screen-credits" class="screen hidden credits-screen">
+    <div class="credits-roll" id="credits-roll"></div>
+    <button class="btn primary credits-btn" id="btn-credits-done">WEITER ▶</button>
   </section>
 
   <!-- Logbuch -->

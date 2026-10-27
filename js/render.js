@@ -86,6 +86,7 @@ export class Renderer {
     this.drawEffects(ctx, game);
     ctx.globalCompositeOperation = 'source-over';
     this.drawTexts(ctx, game);
+    this.drawSpeech(ctx, game);
 
     // Bildschirm-Koordinaten
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -766,6 +767,44 @@ export class Renderer {
   }
 
   // Pfeile am Bildschirmrand für wichtige Dinge außerhalb der Sicht
+  drawSpeech(ctx, game) {
+    const sp = game.speech;
+    if (!sp) return;
+    const k = Math.min(1, sp.t / 0.3, (sp.max - sp.t) / 0.2);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, k);
+    ctx.font = '700 14px Rajdhani, system-ui, sans-serif';
+    const maxW = 220;
+    // Zeilenumbruch
+    const words = sp.text.split(' ');
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? `${cur} ${w}` : w;
+      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    const w = Math.min(maxW, Math.max(...lines.map((l) => ctx.measureText(l).width))) + 20;
+    const h = lines.length * 17 + 12;
+    const x = sp.x - w / 2;
+    const y = sp.y - h - 10;
+    ctx.fillStyle = 'rgba(8,10,24,0.92)';
+    ctx.strokeStyle = sp.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 8);
+    ctx.moveTo(sp.x - 8, y + h);
+    ctx.lineTo(sp.x, y + h + 10);
+    ctx.lineTo(sp.x + 8, y + h);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l, sp.x, y + 7 + i * 17));
+    ctx.restore();
+  }
+
   drawPointers(ctx, game) {
     const b = game.boss;
     if (b && !b.dead) this.drawPointer(ctx, b.x, b.y, '#ff3d6a', 1.3);

@@ -5,6 +5,8 @@ const JOY_RADIUS = 56;
 export const input = {
   x: 0,
   y: 0,
+  padX: 0,
+  padY: 0,
   joy: { active: false, id: null, ox: 0, oy: 0, kx: 0, ky: 0 },
   keys: new Set(),
 
@@ -73,6 +75,10 @@ export const input = {
         x = (dx / d) * m;
         y = (dy / d) * m;
       }
+    }
+    if (!x && !y && (this.padX || this.padY)) {
+      x = this.padX;
+      y = this.padY;
     }
     const len = Math.hypot(x, y);
     if (len > 1) { x /= len; y /= len; }

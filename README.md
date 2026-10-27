@@ -7,9 +7,11 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 ## Features
 
 - **Steuerung:** Ein Joystick erscheint dort, wo der Daumen den Bildschirm berührt. Alle Waffen zielen und feuern automatisch. Mit dem **Dash**-Knopf (am PC Leertaste) weicht man kurz und unverwundbar aus.
+- **Controller:** Gamepads werden automatisch erkannt. Stick oder Steuerkreuz = laufen, A = Dash, X = Ultimate, Start = Pause. In allen Menüs navigiert man mit dem Stick, A wählt aus und B geht zurück.
 - **20 Wellen:** Welle 10 hat einen Zwischenboss (WÄCHTER), Welle 20 den Endboss (OMEGA-KERN). Nach dem Sieg kann man im Endlos-Modus weiterspielen.
 - **4 Arenen:** Neon-Stadt, Kryo-Labor (rutschiges Eis), Schrott-Fabrik (Förderbänder) und Reaktorkern (Plasma-Felder). Die Arena wechselt alle 5 Wellen.
-- **4 Bosse:** Schwarm-Mutter (Welle 5), Wächter (10), Laser-Titan (15) und Omega-Kern (20).
+- **4 Bosse:** Schwarm-Mutter (Welle 5), Wächter (10), Laser-Titan (15) und Omega-Kern (20). Jeder Boss hat eigene Sprüche beim Auftritt, bei halber Energie und beim Tod.
+- **Story:** Ein Comic-Intro in 5 Bildern erzählt, wie die KI Neo-Berlin übernimmt. Nach dem Sieg über den Omega-Kern läuft ein Abspann. Das Intro lässt sich unter „Anleitung & Story“ erneut ansehen.
 - **Begleiter:** Sammel-Drohne, Heil-Bot, Schild-Satellit und Geschütz-Drohne, maximal 2 gleichzeitig.
 - **Wellen-Modifikatoren:** einzelne Wellen sind besonders, z. B. Turbo, Panzerung, Schwarm, Explosiv oder Elite-Jagd.
 - **4 Elemente und 6 Reaktionen:** 🔥 Feuer, ❄️ Eis, ⚡ Blitz und 🌀 Void. Ein zweites Element auf einem markierten Gegner löst eine Reaktion aus.
@@ -18,7 +20,7 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 - **Spektakel:** Zeitlupe und Kamera-Zoom bei Boss-Auftritt und Boss-Tod, Glitch-Effekt bei Treffern, Bildschirmblitze und Licht bei Explosionen.
 - **16 Waffen:** Nah- und Fernkampf, darunter Orbit-Splitter, Drohne, Bumerang und Napalm. Jede hat 4 Stufen, und zwei gleiche Waffen verschmelzen zur nächsten.
 - **Über 30 Items:** darunter Spezialeffekte wie Detonator, Prisma-Linse, Notfall-Protokoll, Zinsen, Dornen und Magnetpuls.
-- **12 Gegnertypen:** darunter Schildträger, Teleporter, Laser-Türme und Heiler, plus 2 Bosse.
+- **12 Gegnertypen:** darunter Schildträger, Teleporter, Laser-Türme und Heiler, plus 4 Bosse.
 - **10 Charaktere:** 6 davon werden über Erfolge freigeschaltet, darunter ZERO (keine Waffen, rammt Gegner), HYDRA (12 Waffenplätze) und GLITCH (Waffen werden jede Welle neu gemischt).
 - **4 Spielmodi:**
   - Kampagne
@@ -76,5 +78,6 @@ So muss man nicht die 10 Minuten abwarten, die GitHub Pages Dateien im Cache hä
 | `js/progress.js` | Erfolge, Freischaltungen, Gesamtstatistik |
 | `sw.js` | Service Worker (offline spielbar) |
 | `js/input.js` | Touch-Joystick und Tastatur |
+| `js/gamepad.js` | Controller-Steuerung und Menü-Navigation |
 | `js/audio.js` | Synthetisierte Soundeffekte |
 | `js/music.js` | Soundtrack: Synthesizer, Effekte und Sequencer mit 8 Songs |

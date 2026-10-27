@@ -1,14 +1,15 @@
 // Einstieg: Menüs, HUD, Shop, Level-Up und Spielschleife
 import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, ENEMIES, MODES, DAILY_MUTATORS, STAT_DEFS, SPECIAL_DEFS,
-  BASE_STATS, META_UPGRADES, SKINS, RAINBOW, WAVE_MODS, bossForWave, ARENAS, EVOLUTIONS, EVO_COLOR, ULTS, COMPANIONS, MAX_COMPANIONS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
+  BASE_STATS, STORY, META_UPGRADES, SKINS, RAINBOW, WAVE_MODS, bossForWave, ARENAS, EVOLUTIONS, EVO_COLOR, ULTS, COMPANIONS, MAX_COMPANIONS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
 } from './data.js';
 import { Game } from './game.js';
 import { Renderer } from './render.js';
 import { input } from './input.js';
 import { audio } from './audio.js';
 import { music, SONGS } from './music.js';
-import { weaponIconURL, playerIconURL } from './sprites.js';
+import { weaponIconURL, playerIconURL, enemySprite } from './sprites.js';
+import { gamepad } from './gamepad.js';
 import { ACHIEVEMENTS, Progress, normalizeProgress, isUnlocked, todayKey as progressTodayKey } from './progress.js';
 
 const $ = (s) => document.querySelector(s);
@@ -119,7 +120,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ================= Screens =================
-const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over', 'codex', 'evo', 'lab'];
+const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over', 'codex', 'evo', 'lab', 'intro', 'credits'];
 function show(name) {
   for (const s of SCREENS) $(`#screen-${s}`).classList.toggle('hidden', s !== name);
 }
@@ -252,10 +253,102 @@ function showMenu() {
 
 $('#btn-play').onclick = () => {
   audio.init();
-  renderSelect();
-  show('select');
+  const toSelect = () => { renderSelect(); show('select'); };
+  if (!store.storySeen) showIntro(toSelect);
+  else toSelect();
 };
-$('#btn-howto').onclick = () => { renderHowto(); openOverlay('howto'); };
+
+// ================= Comic-Intro =================
+const spriteURL = (type) => enemySprite(type, ENEMIES[type], false).img.toDataURL();
+function introArt(kind) {
+  if (kind === 'city') {
+    const cols = ['#00f0ff', '#ff2bd6', '#ffe94a', '#b45cff'];
+    let html = '<div class="art-sign">NEO-BERLIN</div>';
+    for (let i = 0; i < 11; i++) {
+      const w = 30 + ((i * 37) % 30);
+      const h = 70 + ((i * 53) % 120);
+      html += `<div class="art-building" style="left:${i * 9.5 - 2}%;width:${w}px;height:${h}px;--bc:${cols[i % 4]}"></div>`;
+    }
+    return html;
+  }
+  if (kind === 'core') return '<div class="art-core"><div></div></div>';
+  if (kind === 'enemies') return `<div class="art-row">${['drone', 'tank', 'turret', 'shooter'].map((t) => `<img src="${spriteURL(t)}" alt="">`).join('')}</div>`;
+  if (kind === 'heroes') return `<div class="art-row">${['vex', 'nyx', 'brock', 'echo'].map((id) => `<img src="${playerIconURL(id, CHARACTERS.find((c) => c.id === id).color)}" alt="">`).join('')}</div>`;
+  return `<div><div class="art-mission">20 WELLEN<br>4 BOSSE<br>1 KERN</div></div><img src="${spriteURL('omega')}" alt="" style="width:110px;height:110px">`;
+}
+
+function showIntro(onDone) {
+  let idx = 0;
+  let typing = null;
+  const finish = () => {
+    clearInterval(typing);
+    store.storySeen = true;
+    saveStore();
+    onDone();
+  };
+  const render = () => {
+    const panel = STORY[idx];
+    $('#comic-art').innerHTML = introArt(panel.art);
+    $('#comic-art').style.animation = 'none';
+    void $('#comic-art').offsetWidth;
+    $('#comic-art').style.animation = '';
+    $('#comic-dots').innerHTML = STORY.map((_, i) => (i === idx ? '<b>●</b>' : '●')).join('');
+    $('#btn-intro-next').textContent = idx === STORY.length - 1 ? 'LOS GEHT’S ▶' : 'WEITER ▶';
+    // Schreibmaschinen-Effekt
+    let n = 0;
+    clearInterval(typing);
+    $('#comic-text').textContent = '';
+    typing = setInterval(() => {
+      n += 2;
+      $('#comic-text').textContent = panel.text.slice(0, n);
+      if (n >= panel.text.length) { clearInterval(typing); typing = null; }
+    }, 28);
+    audio.play('click');
+  };
+  $('#btn-intro-next').onclick = () => {
+    if (typing) {
+      clearInterval(typing);
+      typing = null;
+      $('#comic-text').textContent = STORY[idx].text;
+      return;
+    }
+    idx++;
+    if (idx >= STORY.length) finish();
+    else render();
+  };
+  $('#btn-intro-skip').onclick = finish;
+  show('intro');
+  render();
+}
+
+// ================= Abspann =================
+function showCredits(g) {
+  const mins = Math.floor(g.time / 60);
+  $('#credits-roll').innerHTML = `
+    <h2>DIE STADT IST GERETTET</h2>
+    <p>Der OMEGA-KERN ist zerstört.<br>Die Maschinen von Neo-Berlin verstummen –<br>und gehören wieder den Menschen.</p>
+    <p>Die Neonlichter brennen weiter.<br>Diesmal für alle.</p>
+    <h3>HELD DER STADT</h3>
+    <p><b style="color:${g.char.color}">${g.char.name}</b> – ${g.char.title}</p>
+    <p>${g.kills.toLocaleString('de-DE')} Maschinen besiegt<br>Level ${g.level} · ${mins} Minuten · ${g.bossesKilled} Bosse</p>
+    <h3>NEON NEXUS</h3>
+    <p>Spielidee &amp; Wünsche<br><b>Du</b></p>
+    <p>Programmierung, Grafik &amp; Musik<br><b>Claude Code</b></p>
+    <p>Alle Sounds, Songs und Figuren<br>werden live im Browser erzeugt.</p>
+    <h3>DANKE FÜRS SPIELEN!</h3>
+    <p>Der Endlos-Modus wartet …</p>`;
+  const roll = $('#credits-roll');
+  roll.style.animation = 'none';
+  void roll.offsetWidth;
+  roll.style.animation = '';
+  openOverlay('credits');
+}
+$('#btn-credits-done').onclick = () => closeOverlay('credits');
+$('#btn-howto').onclick = () => {
+  renderHowto();
+  openOverlay('howto');
+  $('#btn-replay-intro').onclick = () => { closeOverlay('howto'); showIntro(() => showMenu()); };
+};
 $('#btn-codex').onclick = () => { renderCodex(); openOverlay('codex'); };
 $('#btn-lab').onclick = () => { renderLab(); openOverlay('lab'); };
 $('#btn-lab-back').onclick = () => { closeOverlay('lab'); showMenu(); };
@@ -848,7 +941,7 @@ function renderHowto() {
     const [a, b] = key.split('+');
     return `<div class="react"><span class="combo">${ELEMENTS[a].icon}+${ELEMENTS[b].icon}</span><span><b style="color:${r.color}">${r.name}</b> – ${r.desc}</span></div>`;
   }).join('');
-  $('#howto').innerHTML = `
+  $('#howto').innerHTML = `<button class="btn" id="btn-replay-intro" style="width:100%;margin-bottom:10px">📜 STORY-INTRO ANSEHEN</button>
     <p>🕹️ <b>Steuerung:</b> Leg den Daumen irgendwo auf den Bildschirm und zieh – so läufst du. Deine Waffen zielen und feuern <b>automatisch</b>. Am PC: WASD oder Pfeiltasten.</p>
     <p>💨 <b>Dash:</b> Tippe auf <b>DASH</b> (am PC: Leertaste) für einen kurzen Sprint, bei dem du unverwundbar bist. Perfekt, um durch Gegnerhorden zu entkommen!</p>
     <p>⏱️ <b>Ziel:</b> Überlebe 20 Wellen und besiege am Ende den <b>OMEGA-KERN</b>.</p>
@@ -900,6 +993,10 @@ function showGameOver(win, quit = false) {
   $('#btn-endless').classList.toggle('hidden', !win);
   $('#hud').classList.add('hidden');
   show('over');
+  if (win && !g.endless && !g.creditsShown) {
+    g.creditsShown = true;
+    showCredits(g);
+  }
 }
 
 // Ergebnis für Boss-Rush, tägliche Herausforderung und Zeitangriff
@@ -1228,6 +1325,15 @@ function updateHUD() {
   }
 }
 
+// ================= Controller =================
+const padHandlers = {
+  playing: () => !!game && game.state === 'play',
+  dash: () => { if (game && game.dash()) vibrate(12); },
+  ult: () => { if (game) game.useUlt(); },
+  pause: () => pauseGame(),
+  toast: (t) => toast(t, '#00f0ff'),
+};
+
 // ================= Schleife =================
 let last = performance.now();
 let menuT = 0;
@@ -1294,6 +1400,7 @@ function frame(now) {
   const dt = Math.min(0.033, rawDt);
   last = now;
   if (game && game.state === 'play' && rawDt < 0.5) measurePerf(rawDt);
+  gamepad.poll(dt, padHandlers);
   updateMusic();
   if (game) {
     if (game.state === 'play') game.update(dt);
