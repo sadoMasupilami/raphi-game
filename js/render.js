@@ -514,7 +514,7 @@ export class Renderer {
       }
       drawSprite(ctx, spr, w.x, w.y, w.angle, 0.9 + w.tier * 0.08);
     }
-    const blink = p.iframes > 0 && game.state === 'play' && Math.floor(game.time * 20) % 2 === 0;
+    const blink = p.iframes > 0 && p.safeT <= 0 && game.state === 'play' && Math.floor(game.time * 20) % 2 === 0;
     ctx.globalAlpha = blink ? 0.4 : 1;
     const moving = Math.abs(p.vx) + Math.abs(p.vy) > 10;
     const bob = moving ? Math.sin(game.time * 18) * 0.07 : Math.sin(game.time * 3) * 0.03;
@@ -549,6 +549,19 @@ export class Renderer {
     ctx.fill();
     ctx.restore();
     ctx.globalAlpha = 1;
+    // Schonfrist nach Boss-Kill: goldene Schutzblase, flackert kurz vor dem Ende
+    if (p.safeT > 0 && (p.safeT > 0.8 || Math.floor(game.time * 12) % 2 === 0)) {
+      const pulse = Math.sin(game.time * 8) * 2;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(255,215,64,0.12)';
+      ctx.strokeStyle = 'rgba(255,215,64,0.85)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 28 + pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
     if (game.stats.shield > 0 && p.shieldT <= 0) {
       ctx.strokeStyle = 'rgba(125,249,255,0.55)';
       ctx.lineWidth = 2;

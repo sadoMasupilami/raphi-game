@@ -17,6 +17,7 @@ const MAX_TEXTS = 36;
 const PLAYER_BASE_SPEED = 210;
 const DASH_SPEED = 820;
 const DASH_TIME = 0.17;
+const BOSS_SAFE_TIME = 3;
 
 const PRISM_D = {}; // Standardwerte für Elemente aus der Prisma-Linse
 // Unsichtbare "Waffe" für Geschosse der Ultimate-Fähigkeiten
@@ -76,7 +77,7 @@ export class Game {
     this.rerolls = 0;
 
     this.player = {
-      x: ARENA.w / 2, y: ARENA.h / 2, r: 14, hp: 1, iframes: 0, shieldT: 0, regenAcc: 0, vx: 0, vy: 0, lsBudget: 10,
+      x: ARENA.w / 2, y: ARENA.h / 2, r: 14, hp: 1, iframes: 0, shieldT: 0, safeT: 0, regenAcc: 0, vx: 0, vy: 0, lsBudget: 10,
       dashT: 0, dashCd: 0, dashX: 0, dashY: -1, faceX: 0, faceY: -1,
     };
     this.enemies = [];
@@ -749,6 +750,7 @@ export class Game {
     }
     if (p.iframes > 0) p.iframes -= dt;
     if (p.shieldT > 0) p.shieldT -= dt;
+    if (p.safeT > 0) p.safeT -= dt;
     p.lsBudget = Math.min(12, p.lsBudget + dt * 12);
     if (s.regen > 0 && p.hp < s.maxHp) {
       p.regenAcc += s.regen * 0.2 * dt;
@@ -1695,6 +1697,12 @@ export class Game {
       this.light(e.x, e.y, 500, e.def.color, 1.2);
       for (let i = 0; i < 4; i++) this.rings.push({ x: e.x, y: e.y, r0: 10 + i * 20, r1: 260 + i * 90, life: 0.6 + i * 0.2, max: 0.6 + i * 0.2, color: i % 2 ? '#ffffff' : e.def.color, width: 10 });
       for (let i = 0; i < 3; i++) this.dropPickup(e.x, e.y, 'crate', 0);
+      // Kurze Schonfrist nach dem Boss: unverwundbar, feindliche Schüsse lösen sich auf
+      const p = this.player;
+      p.iframes = Math.max(p.iframes, BOSS_SAFE_TIME);
+      p.safeT = BOSS_SAFE_TIME;
+      for (const b of this.ebullets) this.burst(b.x, b.y, '#ffd740', 2, 80);
+      this.ebullets.length = 0;
       this.score += e.type === 'omega' ? 5000 : 1500;
       this.bossesKilled++;
       this.bossTalk(e, 'death');

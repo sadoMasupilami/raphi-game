@@ -10,7 +10,7 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 - **Controller:** Gamepads werden automatisch erkannt. Stick oder Steuerkreuz = laufen, A = Dash, X = Ultimate, Start = Pause. In allen Menüs navigiert man mit dem Stick, A wählt aus und B geht zurück.
 - **20 Wellen:** Welle 10 hat einen Zwischenboss (WÄCHTER), Welle 20 den Endboss (OMEGA-KERN). Nach dem Sieg kann man im Endlos-Modus weiterspielen.
 - **4 Arenen:** Neon-Stadt, Kryo-Labor (rutschiges Eis), Schrott-Fabrik (Förderbänder) und Reaktorkern (Plasma-Felder). Die Arena wechselt alle 5 Wellen.
-- **4 Bosse:** Schwarm-Mutter (Welle 5), Wächter (10), Laser-Titan (15) und Omega-Kern (20). Jeder Boss hat eigene Sprüche beim Auftritt, bei halber Energie und beim Tod.
+- **4 Bosse:** Schwarm-Mutter (Welle 5), Wächter (10), Laser-Titan (15) und Omega-Kern (20). Jeder Boss hat eigene Sprüche beim Auftritt, bei halber Energie und beim Tod. Nach einem Boss-Sieg ist man 3 Sekunden unverwundbar (goldene Schutzblase), und feindliche Schüsse lösen sich auf.
 - **Story:** Ein Comic-Intro in 5 Bildern erzählt, wie die KI Neo-Berlin übernimmt. Nach dem Sieg über den Omega-Kern läuft ein Abspann. Das Intro lässt sich unter „Anleitung & Story“ erneut ansehen.
 - **Begleiter:** Sammel-Drohne, Heil-Bot, Schild-Satellit und Geschütz-Drohne, maximal 2 gleichzeitig.
 - **Wellen-Modifikatoren:** einzelne Wellen sind besonders, z. B. Turbo, Panzerung, Schwarm, Explosiv oder Elite-Jagd.
