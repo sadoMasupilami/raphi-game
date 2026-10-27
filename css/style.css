@@ -483,6 +483,35 @@ h3 {
 .wave-summary .big-num { font-family: Orbitron, sans-serif; color: var(--yellow); font-size: 20px; font-weight: 900; }
 .wave-summary .new-record { color: var(--yellow); font-family: Orbitron, sans-serif; font-weight: 900; text-shadow: 0 0 12px var(--yellow); animation: flicker 1.5s infinite; }
 
+/* ---------- Labor ---------- */
+.shards { font-family: Orbitron, sans-serif; font-weight: 900; color: #7df9ff; text-shadow: 0 0 8px #7df9ff; }
+.shards.big { font-size: 20px; }
+.shard-badge { font-family: Orbitron, sans-serif; font-size: 11px; color: #7df9ff; margin-left: 4px; }
+.missions { display: flex; flex-direction: column; gap: 6px; }
+.mission { text-align: left; border: 1px solid rgba(80, 255, 200, 0.35); border-radius: 10px; padding: 8px 10px; background: rgba(80, 255, 200, 0.04); font-size: 14px; }
+.mission.done { border-color: #50ffc8; box-shadow: 0 0 10px rgba(80, 255, 200, 0.35); }
+.mission .mrow { display: flex; justify-content: space-between; gap: 8px; }
+.mission .mreward { color: #7df9ff; font-family: Orbitron, sans-serif; font-size: 12px; white-space: nowrap; }
+.mission .mbar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); margin-top: 6px; overflow: hidden; }
+.mission .mbar div { height: 100%; background: linear-gradient(90deg, #2bffb0, #00f0ff); }
+.meta-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 14px; }
+@media (min-width: 560px) { .meta-grid { grid-template-columns: 1fr 1fr; } }
+.meta-card { display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid rgba(125, 249, 255, 0.3); border-radius: 12px; padding: 8px 10px; background: rgba(255, 255, 255, 0.03); }
+.meta-card .mi { font-size: 26px; width: 34px; text-align: center; }
+.meta-card .mb { flex: 1; min-width: 0; }
+.meta-card .mt { font-family: Orbitron, sans-serif; font-size: 12px; font-weight: 700; }
+.meta-card .md { font-size: 13px; color: var(--muted); }
+.meta-card .dots { margin-top: 3px; letter-spacing: 2px; color: #7df9ff; font-size: 12px; }
+.meta-card .btn { min-height: 40px; padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+.meta-card.maxed { border-color: #ffd740; }
+/* Skins */
+.skin-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0 4px; align-items: center; }
+.skin-row .sl { font-family: Orbitron, sans-serif; font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-right: 4px; }
+.skin-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); padding: 0; font-size: 13px; color: #fff; }
+.skin-dot.selected { border-color: #fff; box-shadow: 0 0 12px rgba(255, 255, 255, 0.7); transform: scale(1.12); }
+.skin-dot.locked { opacity: 0.35; }
+.stat-hist { font-size: 13px; }
+
 /* ---------- Logbuch ---------- */
 .codex-totals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
 .codex-totals div { background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 6px 2px; font-size: 12px; color: var(--muted); }

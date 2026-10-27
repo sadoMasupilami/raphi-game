@@ -1,5 +1,5 @@
 // Zeichnet die Spielwelt auf das Canvas
-import { ELEMENTS, WEAPONS, ARENAS, COMPANIONS } from './data.js';
+import { ELEMENTS, WEAPONS, ARENAS, COMPANIONS, RAINBOW } from './data.js';
 import { ARENA } from './game.js';
 import { input } from './input.js';
 import { drawSprite, dotSprite, playerSprite, eyeSprite, pickupSprite, weaponSprite, hexToRgba } from './sprites.js';
@@ -494,6 +494,7 @@ export class Renderer {
 
   drawPlayer(ctx, game) {
     const p = game.player;
+    if (game.char.rainbow) game.char.color = RAINBOW[Math.floor(game.time * 6) % RAINBOW.length];
     if (game.state === 'over' && p.hp <= 0) return;
     this.drawUlt(ctx, game);
     this.drawCompanions(ctx, game);

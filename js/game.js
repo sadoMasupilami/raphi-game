@@ -30,7 +30,20 @@ const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 
 export class Game {
   constructor(charId, diffId, hooks, opts = {}) {
-    this.char = CHARACTERS.find((c) => c.id === charId) || CHARACTERS[0];
+    // Kopie, damit ein Skin die Farbe ändern kann, ohne die Daten zu verändern
+    const def = CHARACTERS.find((c) => c.id === charId) || CHARACTERS[0];
+    this.char = { ...def };
+    if (opts.skin === 'rainbow') this.char.rainbow = true;
+    else if (opts.skin) this.char.color = opts.skin;
+    this.meta = opts.meta || {};
+    this.xpMult = 1 + 0.06 * (this.meta.xp || 0);
+    this.shopSize = 4 + (this.meta.offer || 0);
+    this.freeRerolls = 0;
+    this.revived = false;
+    this.bossesKilled = 0;
+    this.dmgByElem = {};
+    this.dmgCtx = null;
+    this.weaponWaves = {};
     this.mode = opts.mode || 'campaign';
     this.daily = opts.daily || null; // { muts: [...], weapon }
     this.timeElapsed = 0;
@@ -120,6 +133,13 @@ export class Game {
     if (this.hasMut('rich')) this.credits += 150;
     if (this.hasMut('nodash')) this.bonus.speed = (this.bonus.speed || 0) + 20;
     if (this.hasMut('vampire')) this.bonus.lifesteal = (this.bonus.lifesteal || 0) + 10;
+    // Dauerhafte Labor-Upgrades
+    const M = this.meta;
+    if (M.dmg) this.bonus.dmg = (this.bonus.dmg || 0) + 3 * M.dmg;
+    if (M.hp) this.bonus.maxHp = (this.bonus.maxHp || 0) + 4 * M.hp;
+    if (M.magnet) this.bonus.magnet = (this.bonus.magnet || 0) + 12 * M.magnet;
+    if (M.credits) this.credits += 15 * M.credits;
+    if (M.ult) this.ult.charge = 25 * M.ult;
     this.recalc();
     this.player.hp = this.stats.maxHp;
   }
@@ -340,7 +360,7 @@ export class Game {
   levelRerollCost() { return 2 + this.wave; }
 
   addXp(v) {
-    this.xp += v;
+    this.xp += v * this.xpMult;
     while (this.xp >= this.xpNeeded()) {
       this.xp -= this.xpNeeded();
       this.level++;
@@ -370,7 +390,7 @@ export class Game {
   rollShop(keepLocked = true) {
     const kept = keepLocked ? this.shopOffers.filter((o) => o && o.locked) : [];
     this.shopOffers = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < this.shopSize; i++) {
       const lockedOne = kept.shift();
       this.shopOffers.push(lockedOne || this.makeOffer());
     }
@@ -378,6 +398,7 @@ export class Game {
 
   openShop() {
     this.rerolls = 0;
+    this.freeRerolls = this.meta.reroll || 0;
     // Preise der gesperrten Angebote an die aktuelle Welle anpassen
     for (const o of this.shopOffers) {
       if (!o || !o.locked) continue;
@@ -387,6 +408,7 @@ export class Game {
   }
 
   rerollCost() {
+    if (this.freeRerolls > 0) return 0;
     const base = Math.max(1, Math.floor(this.wave * 0.75));
     return base + this.rerolls * Math.ceil(base / 2);
   }
@@ -394,8 +416,9 @@ export class Game {
   reroll() {
     const c = this.rerollCost();
     if (this.credits < c) return false;
+    if (this.freeRerolls > 0) this.freeRerolls--;
+    else this.rerolls++;
     this.credits -= c;
-    this.rerolls++;
     this.rollShop(true);
     return true;
   }
@@ -619,6 +642,7 @@ export class Game {
 
   endWave() {
     this.state = 'intermission';
+    for (const w of this.weapons) this.weaponWaves[w.id] = (this.weaponWaves[w.id] || 0) + 1;
     // Restliche Daten-Chips einsammeln
     let collected = 0;
     for (const p of this.pickups) {
@@ -1411,7 +1435,9 @@ export class Game {
     }
     // Blitz zerstört Schilde doppelt so schnell
     if (e.shieldHp > 0 && d.elem === 'bolt') dmg *= 2;
+    this.dmgCtx = d.elem || 'phys';
     this.damage(e, dmg, crit ? '#fff27a' : '#ffffff', crit);
+    this.dmgCtx = null;
     if (e.dead) { this.lifesteal(); return; }
     if (d.elem) this.applyElement(e, d.elem, w.tier, dmg, d);
     if (crit && this.stats.prism > 0 && !e.dead) {
@@ -1455,6 +1481,8 @@ export class Game {
     }
     e.hp -= amount;
     e.flash = 0.07;
+    const ctx = this.dmgCtx || 'other';
+    this.dmgByElem[ctx] = (this.dmgByElem[ctx] || 0) + Math.min(amount, e.hp + amount);
     if (this.dmgMode === 'all' || (big && this.dmgMode === 'crit')) {
       this.addText(e.x + rand(-6, 6), e.y - e.r - 4, Math.max(1, Math.round(amount)), color, big ? 17 : 13);
     }
@@ -1518,6 +1546,13 @@ export class Game {
     }
     this.reactionCount++;
     this.emit('reaction', key);
+    const prevCtx = this.dmgCtx;
+    this.dmgCtx = 'react';
+    this.reactionBody(e, key, R, rd, s, x, y);
+    this.dmgCtx = prevCtx;
+  }
+
+  reactionBody(e, key, R, rd, s, x, y) {
     switch (key) {
       case 'fire+ice': {
         for (const t of this.query(x, y, 85)) this.damage(t, rd * 1.4, R.color);
@@ -1606,6 +1641,7 @@ export class Game {
     e.dead = true;
     this.kills++;
     this.score += Math.max(1, e.xp) * 10;
+    this.emit('kill', e.type);
     this.burst(e.x, e.y, e.def.color, e.def.boss ? 60 : 9, e.def.boss ? 400 : 170);
     if (!this.lowFx && this.corpses.length < 40) this.corpses.push({ sprite: e.sprite, x: e.x, y: e.y, rot: e.rot * 0.5, life: 0.22, max: 0.22 });
     audio.play('kill');
@@ -1658,6 +1694,7 @@ export class Game {
       for (let i = 0; i < 4; i++) this.rings.push({ x: e.x, y: e.y, r0: 10 + i * 20, r1: 260 + i * 90, life: 0.6 + i * 0.2, max: 0.6 + i * 0.2, color: i % 2 ? '#ffffff' : e.def.color, width: 10 });
       for (let i = 0; i < 3; i++) this.dropPickup(e.x, e.y, 'crate', 0);
       this.score += e.type === 'omega' ? 5000 : 1500;
+      this.bossesKilled++;
       this.emit('boss', e.type);
       if (this.mode === 'bossrush' && !(e.type === 'omega' && !this.endless)) {
         const bonus = 80 + this.wave * 6;
@@ -1763,7 +1800,11 @@ export class Game {
             if (vd > dmg) col = '#c07bff';
             dmg += vd;
           }
-          if (dmg > 0) this.damage(e, dmg, col);
+          if (dmg > 0) {
+            this.dmgCtx = col === '#c07bff' ? 'void' : 'fire';
+            this.damage(e, dmg, col);
+            this.dmgCtx = null;
+          }
           if (e.dead) continue;
           if (e.burnT > 0 && Math.random() < 0.6) this.particle(e.x + rand(-e.r, e.r) * 0.5, e.y, rand(-10, 10), rand(-60, -30), 0.45, '#ff7a2a', 3);
         }
@@ -2177,6 +2218,17 @@ export class Game {
     this.shake = Math.max(this.shake, 6);
     this.hooks.vibrate(35);
     audio.play('hurt');
+    if (p.hp <= 0 && this.meta.revive && !this.revived) {
+      this.revived = true;
+      p.hp = Math.ceil(this.stats.maxHp * 0.5);
+      p.iframes = 2.5;
+      this.addText(p.x, p.y - 30, 'BACKUP AKTIVIERT!', '#50ffc8', 16, 1.4);
+      this.rings.push({ x: p.x, y: p.y, r0: 10, r1: 220, life: 0.6, max: 0.6, color: '#50ffc8', width: 10 });
+      this.screenFlash('#50ffc8', 0.5);
+      for (const e of this.query(p.x, p.y, 220)) if (!e.def.boss) { e.kx += (e.x - p.x) * 4; e.ky += (e.y - p.y) * 4; }
+      audio.play('levelup');
+      return;
+    }
     if (p.hp <= 0) {
       p.hp = 0;
       this.state = 'over';

@@ -25,6 +25,10 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
   - Boss-Rush (nur Bosse, dazwischen Shop)
   - Tägliche Herausforderung (jeden Tag für alle gleicher Charakter, gleiche Startwaffe und zwei Besonderheiten)
   - Zeitangriff (5 Minuten, so viele Kills wie möglich)
+- **Labor:** Am Ende jeder Runde und für Missionen gibt es Kern-Splitter. Damit kauft man dauerhafte Upgrades, z. B. Schaden, HP, Startkapital, ein 5. Shop-Angebot oder eine Wiederbelebung.
+- **Tägliche Missionen:** 3 neue Aufgaben pro Tag.
+- **Skins:** 7 alternative Farben, darunter Gold und Regenbogen, freigeschaltet über Erfolge.
+- **Statistik-Seite:** Spielzeit, Rekorde, Lieblingswaffe, Schaden pro Element und die letzten Runden.
 - **Fortschritt:** 13 Erfolge, ein Logbuch mit Statistiken und allen Entdeckungen, ein Tutorial beim ersten Start und ein Highscore pro Schwierigkeit.
 - **Lesbarkeit:** Pfeile am Rand zeigen Boss, Elites und Kapseln außerhalb der Sicht. Explosionen und Laser werden vorher angekündigt.
 - **Soundtrack:** 8 eigene Songs, komplett live synthetisiert. Die Kampfmusik wechselt alle 5 Wellen und wird dabei schneller und härter:

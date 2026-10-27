@@ -1,7 +1,7 @@
 // Einstieg: Menüs, HUD, Shop, Level-Up und Spielschleife
 import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, ENEMIES, MODES, DAILY_MUTATORS, STAT_DEFS, SPECIAL_DEFS,
-  BASE_STATS, WAVE_MODS, bossForWave, ARENAS, EVOLUTIONS, EVO_COLOR, ULTS, COMPANIONS, MAX_COMPANIONS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
+  BASE_STATS, META_UPGRADES, SKINS, RAINBOW, WAVE_MODS, bossForWave, ARENAS, EVOLUTIONS, EVO_COLOR, ULTS, COMPANIONS, MAX_COMPANIONS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
 } from './data.js';
 import { Game } from './game.js';
 import { Renderer } from './render.js';
@@ -9,7 +9,7 @@ import { input } from './input.js';
 import { audio } from './audio.js';
 import { music, SONGS } from './music.js';
 import { weaponIconURL, playerIconURL } from './sprites.js';
-import { ACHIEVEMENTS, Progress, normalizeProgress, isUnlocked } from './progress.js';
+import { ACHIEVEMENTS, Progress, normalizeProgress, isUnlocked, todayKey as progressTodayKey } from './progress.js';
 
 const $ = (s) => document.querySelector(s);
 const STORE_KEY = 'neonnexus.v1';
@@ -27,6 +27,9 @@ function loadStore() {
     lastDiff: 'normal',
     lastMode: 'campaign',
     modeRecords: {},
+    meta: { shards: 0, levels: {} },
+    skins: {},
+    missions: null,
     progress: null,
     tutorial: {},
   };
@@ -38,7 +41,9 @@ function loadStore() {
     // Alte Einstellung (an/aus) übernehmen
     if (data.settings && data.settings.dmgNumbers === false && !data.settings.dmgMode) settings.dmgMode = 'off';
     delete settings.dmgNumbers;
-    return { ...def, ...data, settings, progress: normalizeProgress(data.progress), tutorial: data.tutorial || {} };
+    const meta = { shards: 0, ...(data.meta || {}) };
+    meta.levels = { ...((data.meta && data.meta.levels) || {}) };
+    return { ...def, ...data, settings, meta, skins: data.skins || {}, progress: normalizeProgress(data.progress), tutorial: data.tutorial || {} };
   } catch (_) {
     return { ...def, progress: normalizeProgress(null) };
   }
@@ -72,10 +77,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const todayKey = progressTodayKey;
 // Für alle Spieler am selben Tag gleich: Charakter, Startwaffe, zwei Besonderheiten
 function dailyConfig() {
   const key = todayKey();
@@ -117,7 +119,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ================= Screens =================
-const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over', 'codex', 'evo'];
+const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over', 'codex', 'evo', 'lab'];
 function show(name) {
   for (const s of SCREENS) $(`#screen-${s}`).classList.toggle('hidden', s !== name);
 }
@@ -243,6 +245,8 @@ function showMenu() {
   if (updatePending) { applyUpdate(); return; }
   $('#hud').classList.add('hidden');
   renderHighscores();
+  const open = progress.missions().filter((m) => !m.done).length;
+  $('#menu-shards').textContent = `💠 ${store.meta.shards}${open ? ` · 🎯 ${open}` : ''}`;
   show('menu');
 }
 
@@ -253,6 +257,8 @@ $('#btn-play').onclick = () => {
 };
 $('#btn-howto').onclick = () => { renderHowto(); openOverlay('howto'); };
 $('#btn-codex').onclick = () => { renderCodex(); openOverlay('codex'); };
+$('#btn-lab').onclick = () => { renderLab(); openOverlay('lab'); };
+$('#btn-lab-back').onclick = () => { closeOverlay('lab'); showMenu(); };
 $('#btn-codex-back').onclick = () => closeOverlay('codex');
 $('#btn-howto-back').onclick = () => closeOverlay('howto');
 $('#btn-settings').onclick = () => { renderSettings(); openOverlay('settings'); };
@@ -316,6 +322,31 @@ function renderSelect() {
       renderSelect();
     };
   });
+  // Skins für den gewählten Charakter
+  if (daily) {
+    $('#skin-row').innerHTML = '';
+  } else {
+    const cur = store.skins[selectedChar] || 'default';
+    $('#skin-row').innerHTML = '<span class="sl">SKIN</span>' + Object.entries(SKINS).map(([k, sk]) => {
+      const unlocked = !sk.ach || store.progress.achievements[sk.ach];
+      const col = sk.color === 'rainbow' ? `conic-gradient(${RAINBOW.join(',')})` : sk.color || CHARACTERS.find((c) => c.id === selectedChar).color;
+      const ach = sk.ach ? ACHIEVEMENTS.find((a) => a.id === sk.ach) : null;
+      return `<button class="skin-dot ${k === cur ? 'selected' : ''} ${unlocked ? '' : 'locked'}" data-skin="${k}" style="background:${col}" title="${sk.name}${ach && !unlocked ? ` – Erfolg: ${ach.name}` : ''}">${unlocked ? '' : '🔒'}</button>`;
+    }).join('');
+    $('#skin-row').querySelectorAll('[data-skin]').forEach((el) => {
+      el.onclick = () => {
+        const sk = SKINS[el.dataset.skin];
+        if (sk.ach && !store.progress.achievements[sk.ach]) {
+          const ach = ACHIEVEMENTS.find((a) => a.id === sk.ach);
+          toast(`🔒 ${sk.name}: Erfolg „${ach.name}“ – ${ach.desc}`, '#ffd740');
+          return;
+        }
+        store.skins[selectedChar] = el.dataset.skin;
+        saveStore();
+        renderSelect();
+      };
+    });
+  }
   $('#diff-row').innerHTML = Object.entries(DIFFICULTIES).map(([k, d]) =>
     `<button class="btn diff-btn ${k === selectedDiff ? 'selected' : ''}" data-id="${k}">${d.name.toUpperCase()}<small>${d.desc}</small></button>`).join('');
   $('#diff-row').querySelectorAll('.diff-btn').forEach((el) => {
@@ -351,11 +382,14 @@ const hooks = {
 };
 
 function startGame() {
+  const meta = { ...store.meta.levels };
   if (selectedMode === 'daily') {
+    // Tägliche Herausforderung: für alle gleich – ohne Labor-Boni
     const dc = dailyConfig();
     game = new Game(dc.charId, 'normal', hooks, { mode: 'daily', daily: { muts: dc.muts, weapon: dc.weapon, key: dc.key } });
   } else {
-    game = new Game(selectedChar, selectedDiff, hooks, { mode: selectedMode });
+    const sk = SKINS[store.skins[selectedChar] || 'default'];
+    game = new Game(selectedChar, selectedDiff, hooks, { mode: selectedMode, meta, skin: sk && sk.color });
   }
   game.dmgMode = store.settings.dmgMode;
   game.lowFx = lowFxActive();
@@ -861,7 +895,8 @@ function showGameOver(win, quit = false) {
     Welle: <span class="big-num">${reached}</span> &nbsp; Level: <span class="big-num">${g.level}</span><br>
     Besiegt: <span class="big-num">${g.kills}</span><br>
     Punkte: <span class="big-num">${g.score.toLocaleString('de-DE')}</span><br>
-    ${record ? '<span class="new-record">★ NEUER REKORD ★</span>' : `Rekord: ${store.highscores[key].score.toLocaleString('de-DE')}`}`;
+    ${record ? '<span class="new-record">★ NEUER REKORD ★</span>' : `Rekord: ${store.highscores[key].score.toLocaleString('de-DE')}`}<br>
+    <span class="shards">+${g.lastShardGain || 0} 💠 Kern-Splitter</span>`;
   $('#btn-endless').classList.toggle('hidden', !win);
   $('#hud').classList.add('hidden');
   show('over');
@@ -899,7 +934,8 @@ function showModeOver(g, result, quit) {
     ${line}<br>
     Besiegt: <span class="big-num">${g.kills}</span> &nbsp; Level: <span class="big-num">${g.level}</span><br>
     Punkte: <span class="big-num">${g.score.toLocaleString('de-DE')}</span><br>
-    ${record ? '<span class="new-record">★ NEUER REKORD ★</span>' : `Rekord: ${rec}`}`;
+    ${record ? '<span class="new-record">★ NEUER REKORD ★</span>' : `Rekord: ${rec}`}<br>
+    <span class="shards">+${g.lastShardGain || 0} 💠 Kern-Splitter</span>`;
   $('#btn-endless').classList.toggle('hidden', !(win && g.mode === 'bossrush'));
   $('#hud').classList.add('hidden');
   show('over');
@@ -921,6 +957,41 @@ $('#btn-endless').onclick = () => {
   $('#shop-sub').textContent = 'Endlos-Modus: Wie lange hältst du durch?';
   show('shop');
 };
+
+// ================= Labor =================
+function renderLab() {
+  const meta = store.meta;
+  $('#lab-shards').textContent = `💠 ${meta.shards}`;
+  $('#lab-missions').innerHTML = progress.missions().map((m) => `<div class="mission ${m.done ? 'done' : ''}">
+      <div class="mrow"><span>${m.done ? '✅' : '🎯'} ${m.text}</span><span class="mreward">+${Math.round(m.reward)} 💠</span></div>
+      <div class="mbar"><div style="width:${Math.round((m.progress / m.target) * 100)}%"></div></div>
+    </div>`).join('') + '<p class="hint">Neue Missionen gibt es jeden Tag.</p>';
+  $('#lab-upgrades').innerHTML = Object.entries(META_UPGRADES).map(([k, u]) => {
+    const lv = meta.levels[k] || 0;
+    const maxed = lv >= u.max;
+    const cost = maxed ? 0 : u.cost[lv];
+    return `<div class="meta-card ${maxed ? 'maxed' : ''}"><div class="mi">${u.icon}</div>
+      <div class="mb"><div class="mt">${u.name}</div><div class="md">${u.desc}${u.max > 1 ? ' pro Stufe' : ''}</div>
+      <div class="dots">${'●'.repeat(lv)}${'○'.repeat(u.max - lv)}</div></div>
+      ${maxed ? '<span class="shards">MAX</span>' : `<button class="btn ${meta.shards >= cost ? 'primary' : ''}" data-meta="${k}">💠 ${cost}</button>`}
+    </div>`;
+  }).join('');
+  $('#lab-upgrades').querySelectorAll('[data-meta]').forEach((el) => {
+    el.onclick = () => {
+      const k = el.dataset.meta;
+      const u = META_UPGRADES[k];
+      const lv = meta.levels[k] || 0;
+      const cost = u.cost[lv];
+      if (lv >= u.max || meta.shards < cost) { audio.play('error'); toast('Nicht genug Kern-Splitter', '#ff3d6a'); return; }
+      meta.shards -= cost;
+      meta.levels[k] = lv + 1;
+      saveStore();
+      audio.play('levelup');
+      toast(`${u.icon} ${u.name} → Stufe ${lv + 1}`, '#7df9ff');
+      renderLab();
+    };
+  });
+}
 
 // ================= Logbuch =================
 const ENEMY_DESC = {
@@ -945,13 +1016,15 @@ function renderCodex() {
   const pr = store.progress;
   const t = pr.totals;
   $('#codex-totals').innerHTML = `<div><b>${t.runs}</b>Runden</div><div><b>${t.wins}</b>Siege</div><div><b>${t.kills.toLocaleString('de-DE')}</b>Besiegt</div><div><b>${t.reactions.toLocaleString('de-DE')}</b>Reaktionen</div>`;
-  const tabs = [['erfolge', '🏆 Erfolge'], ['waffen', '🔫 Waffen'], ['items', '🎒 Items'], ['reaktionen', '🧪 Reaktionen'], ['gegner', '👾 Gegner']];
+  const tabs = [['statistik', '📊 Statistik'], ['erfolge', '🏆 Erfolge'], ['waffen', '🔫 Waffen'], ['items', '🎒 Items'], ['reaktionen', '🧪 Reaktionen'], ['gegner', '👾 Gegner']];
   $('#codex-tabs').innerHTML = tabs.map(([k, l]) => `<button class="btn ${k === codexTab ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('');
   $('#codex-tabs').querySelectorAll('[data-tab]').forEach((el) => { el.onclick = () => { codexTab = el.dataset.tab; renderCodex(); }; });
   const entry = (unlocked, icon, title, desc, color) => `<div class="codex-entry ${unlocked ? '' : 'locked'}" style="--tc:${color || 'rgba(255,255,255,0.15)'}">
       <div class="ci">${icon}</div><div><div class="ct">${title}</div><div class="cd">${desc}</div></div></div>`;
   let html = '';
-  if (codexTab === 'erfolge') {
+  if (codexTab === 'statistik') {
+    html = renderStatsTab(pr);
+  } else if (codexTab === 'erfolge') {
     const n = ACHIEVEMENTS.filter((a) => pr.achievements[a.id]).length;
     html = `<p class="sub" style="grid-column:1/-1">${n} von ${ACHIEVEMENTS.length} Erfolgen</p>` + ACHIEVEMENTS.map((a) => {
       const ok = !!pr.achievements[a.id];
@@ -984,6 +1057,35 @@ function renderCodex() {
       : entry(false, '❔', '???', 'Noch nicht begegnet.'))).join('');
   }
   $('#codex-body').innerHTML = html;
+}
+
+function renderStatsTab(pr) {
+  const t = pr.totals;
+  const mins = Math.round(t.playTime / 60);
+  const fav = Object.entries(pr.weaponWaves).sort((a, b) => b[1] - a[1])[0];
+  const dmgTotal = Object.values(pr.dmgByElem).reduce((a, b) => a + b, 0) || 1;
+  const elemNames = { fire: '🔥 Feuer', ice: '❄️ Eis', bolt: '⚡ Blitz', void: '🌀 Void', react: '🧪 Reaktionen', phys: '💪 Physisch', other: '✨ Sonstiges' };
+  const elemCols = { fire: ELEMENTS.fire.color, ice: ELEMENTS.ice.color, bolt: ELEMENTS.bolt.color, void: ELEMENTS.void.color, react: '#ff4fa0', phys: '#cfd8e3', other: '#ffd740' };
+  const bars = Object.entries(pr.dmgByElem).sort((a, b) => b[1] - a[1]).map(([k, v]) => {
+    const pct = Math.round((v / dmgTotal) * 100);
+    return `<div class="stat-row"><span>${elemNames[k] || k}</span><span class="v" style="color:${elemCols[k] || '#fff'}">${pct}% · ${Math.round(v).toLocaleString('de-DE')}</span></div>`;
+  }).join('') || '<p class="hint">Noch keine Daten.</p>';
+  const hist = pr.history.slice().reverse().map((h) => {
+    const c = CHARACTERS.find((x) => x.id === h.char);
+    return `<div class="stat-row stat-hist"><span>${h.date.slice(5)} · ${MODES[h.mode] ? MODES[h.mode].icon : ''} ${c ? c.name : h.char}</span><span class="v">${h.win ? '🏆 ' : ''}W${h.wave} · ${h.kills} K · ${h.score.toLocaleString('de-DE')}</span></div>`;
+  }).join('') || '<p class="hint">Noch keine Runden gespielt.</p>';
+  const row = (l, v) => `<div class="stat-row"><span>${l}</span><span class="v">${v}</span></div>`;
+  return `<div style="grid-column:1/-1">
+    ${row('⏱️ Spielzeit', `${mins} min`)}
+    ${row('💀 Bosse besiegt', t.bosses)}
+    ${row('🔥 Meiste Kills in einer Runde', pr.best.kills)}
+    ${row('🌊 Höchste Welle', pr.best.wave)}
+    ${row('⭐ Höchste Punktzahl', pr.best.score.toLocaleString('de-DE'))}
+    ${row('💠 Kern-Splitter gesammelt', t.shards)}
+    ${row('❤️ Lieblingswaffe', fav ? `${WEAPONS[fav[0]] ? WEAPONS[fav[0]].name : fav[0]} (${fav[1]} Wellen)` : '–')}
+    <h3>SCHADEN NACH ELEMENT</h3>${bars}
+    <h3>LETZTE RUNDEN</h3>${hist}
+  </div>`;
 }
 
 // ================= Tutorial =================

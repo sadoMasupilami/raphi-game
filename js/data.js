@@ -467,6 +467,32 @@ export const COMPANIONS = {
 };
 export const MAX_COMPANIONS = 2;
 
+// Labor: dauerhafte Upgrades, bezahlt mit Kern-Splittern
+export const META_UPGRADES = {
+  dmg: { name: 'Kampfprotokolle', icon: '💥', desc: '+3% Schaden', max: 5, cost: [15, 30, 50, 80, 120] },
+  hp: { name: 'Verstärkte Panzerung', icon: '❤️', desc: '+4 Max. HP', max: 5, cost: [15, 30, 50, 80, 120] },
+  credits: { name: 'Startkapital', icon: '💰', desc: '+15 Credits zu Beginn', max: 5, cost: [10, 20, 35, 55, 80] },
+  xp: { name: 'Lernalgorithmus', icon: '📚', desc: '+6% Erfahrung', max: 5, cost: [20, 35, 55, 85, 125] },
+  magnet: { name: 'Magnetfeld', icon: '🧲', desc: '+12% Sammelradius', max: 3, cost: [10, 25, 45] },
+  reroll: { name: 'Glückswürfel', icon: '🎲', desc: '1× kostenlos Neu-Würfeln pro Shop', max: 2, cost: [40, 90] },
+  offer: { name: 'Schwarzmarkt-Kontakt', icon: '🛒', desc: '5. Angebot im Shop', max: 1, cost: [120] },
+  ult: { name: 'Überladener Kern', icon: '⚡', desc: 'Ultimate startet zu 25% geladen', max: 2, cost: [35, 70] },
+  revive: { name: 'Backup-Kopie', icon: '💾', desc: 'Einmal pro Runde mit 50% HP wiederbeleben', max: 1, cost: [200] },
+};
+
+// Skins: andere Farben für alle Charaktere, freigeschaltet über Erfolge
+export const SKINS = {
+  default: { name: 'Standard', color: null, ach: null },
+  ice: { name: 'Frost', color: '#9df3ff', ach: 'guardian' },
+  toxic: { name: 'Toxisch', color: '#7dff5a', ach: 'kills1000' },
+  shadow: { name: 'Schatten', color: '#8a5cff', ach: 'titan' },
+  gold: { name: 'Gold', color: '#ffd740', ach: 'win' },
+  blood: { name: 'Blutrot', color: '#ff2244', ach: 'winHard' },
+  neon: { name: 'Neon-Pink', color: '#ff2bd6', ach: 'bossrush' },
+  rainbow: { name: 'Regenbogen', color: 'rainbow', ach: 'allChars' },
+};
+export const RAINBOW = ['#ff3d3d', '#ff8c1a', '#ffe94a', '#7dff5a', '#2bffb0', '#00f0ff', '#4d7dff', '#b45cff', '#ff2bd6', '#ff3d8b'];
+
 export const MAX_WAVE = 20;
 export const MINIBOSS_WAVE = 10;
 export const SHOP_EVERY = 2;      // Shop nach jeder 2. Welle
