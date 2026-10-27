@@ -8,15 +8,20 @@ export const ACHIEVEMENTS = [
   { id: 'allReactions', icon: '🧪', name: 'Elementar-Meister', desc: 'Entdecke alle 6 Reaktionen.', unlocks: 'prisma' },
   { id: 'mother', icon: '🐛', name: 'Kammerjäger', desc: 'Besiege die SCHWARM-MUTTER.' },
   { id: 'titan', icon: '🗿', name: 'Titanenfall', desc: 'Besiege den LASER-TITAN.' },
+  { id: 'kills500', icon: '🔥', name: 'Maschinenschredder', desc: 'Besiege 500 Gegner in einer einzigen Runde.', unlocks: 'zero' },
+  { id: 'runs10', icon: '🔁', name: 'Stammgast', desc: 'Spiele 10 Runden.', unlocks: 'glitch' },
+  { id: 'bossrush', icon: '💀', name: 'Boss-Bezwinger', desc: 'Schaffe den Boss-Rush.' },
+  { id: 'timeattack', icon: '⏱️', name: 'Sprinter', desc: 'Besiege im Zeitangriff 400 Gegner.' },
+  { id: 'daily', icon: '📅', name: 'Tagesform', desc: 'Schaffe Welle 10 in einer täglichen Herausforderung.' },
   { id: 'win', icon: '🏆', name: 'Retter der Stadt', desc: 'Besiege den OMEGA-KERN.' },
   { id: 'winHard', icon: '👑', name: 'Legende', desc: 'Gewinne auf Schwer.' },
   { id: 'tier4', icon: '⚒️', name: 'Meisterschmied', desc: 'Schmiede eine Waffe der Stufe IV.' },
-  { id: 'fullHouse', icon: '🔫', name: 'Waffenarsenal', desc: 'Trage 6 Waffen gleichzeitig.' },
+  { id: 'fullHouse', icon: '🔫', name: 'Waffenarsenal', desc: 'Trage 6 Waffen gleichzeitig.', unlocks: 'hydra' },
   { id: 'reactions100', icon: '⚡', name: 'Kettenreaktion', desc: 'Löse 100 Reaktionen in einer Runde aus.' },
   { id: 'rich', icon: '💰', name: 'Krösus', desc: 'Besitze 500 Credits auf einmal.' },
   { id: 'kills1000', icon: '💀', name: 'Maschinenbrecher', desc: 'Besiege insgesamt 1000 Gegner.' },
   { id: 'endless25', icon: '♾️', name: 'Unaufhaltsam', desc: 'Erreiche Welle 25 im Endlos-Modus.' },
-  { id: 'allChars', icon: '👥', name: 'Crew komplett', desc: 'Spiele mit allen 7 Charakteren.' },
+  { id: 'allChars', icon: '👥', name: 'Crew komplett', desc: 'Spiele mit allen 10 Charakteren.' },
 ];
 
 export function defaultProgress() {
@@ -108,6 +113,8 @@ export class Progress {
     if (game.wave >= 1) this.unlock('firstWave');
     if (game.wave >= 10 && (game.char.id === 'vex' || game.char.id === 'brock')) this.unlock('melee10');
     if (game.endless && game.wave >= 25) this.unlock('endless25');
+    if (game.kills >= 500) this.unlock('kills500');
+    if (game.mode === 'daily' && game.wave >= 10) this.unlock('daily');
     this.checkCredits(game);
     this.flush();
   }
@@ -129,6 +136,10 @@ export class Progress {
     if (win) t.wins++;
     this.p.played[game.char.id] = true;
     if (t.kills >= 1000) this.unlock('kills1000');
+    if (t.runs >= 10) this.unlock('runs10');
+    if (game.kills >= 500) this.unlock('kills500');
+    if (game.mode === 'bossrush' && win) this.unlock('bossrush');
+    if (game.mode === 'time' && game.kills >= 400) this.unlock('timeattack');
     if (CHARACTERS.every((c) => this.p.played[c.id])) this.unlock('allChars');
     this.save();
   }

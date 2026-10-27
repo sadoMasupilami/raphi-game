@@ -3,7 +3,7 @@ import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, reactionKey, WEAPONS, ITEMS, CHARACTERS, ENEMIES, DIFFICULTIES,
   BASE_STATS, UPGRADES, TIER_PRICE, BOLT_SHOCK_TIME, SHOCK_BONUS,
   MAX_WAVE, MAX_WEAPONS, waveDuration, WAVE_MODS, MOD_WAVES, EVOLUTIONS, ULTS,
-  bossForWave, ARENAS, arenaForWave, COMPANIONS, MAX_COMPANIONS,
+  bossForWave, ARENAS, arenaForWave, COMPANIONS, MAX_COMPANIONS, TIME_ATTACK_SECONDS,
 } from './data.js';
 import { audio } from './audio.js';
 import { input } from './input.js';
@@ -29,8 +29,12 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 
 export class Game {
-  constructor(charId, diffId, hooks) {
+  constructor(charId, diffId, hooks, opts = {}) {
     this.char = CHARACTERS.find((c) => c.id === charId) || CHARACTERS[0];
+    this.mode = opts.mode || 'campaign';
+    this.daily = opts.daily || null; // { muts: [...], weapon }
+    this.timeElapsed = 0;
+    this.clearT = 0;
     this.diffId = diffId;
     this.diff = DIFFICULTIES[diffId] || DIFFICULTIES.normal;
     this.hooks = hooks;
@@ -101,11 +105,26 @@ export class Game {
     this.grid = Array.from({ length: this.gridCols * this.gridRows }, () => []);
     this._q = [];
 
-    this.addWeapon(this.char.weapon, 0);
+    this.maxWeapons = this.char.slots || MAX_WEAPONS;
+    const startWeapon = this.daily && this.daily.weapon && !this.char.noWeapons ? this.daily.weapon : this.char.weapon;
+    if (startWeapon) this.addWeapon(startWeapon, 0);
     for (const id of this.char.extraWeapons || []) this.addWeapon(id, 0);
+    for (let i = 0; i < (this.char.randomStart || 0); i++) this.addWeapon(this.randomWeaponId(), 0);
+    this.recalc();
+    // Besonderheiten der täglichen Herausforderung
+    if (this.hasMut('glass')) {
+      this.bonus.dmg = (this.bonus.dmg || 0) + 60;
+      this.recalc();
+      this.bonus.maxHp = (this.bonus.maxHp || 0) - Math.floor(this.stats.maxHp / 2);
+    }
+    if (this.hasMut('rich')) this.credits += 150;
+    if (this.hasMut('nodash')) this.bonus.speed = (this.bonus.speed || 0) + 20;
+    if (this.hasMut('vampire')) this.bonus.lifesteal = (this.bonus.lifesteal || 0) + 10;
     this.recalc();
     this.player.hp = this.stats.maxHp;
   }
+
+  hasMut(id) { return !!this.daily && this.daily.muts.includes(id); }
 
   // Ereignis an Fortschritt/Tutorial melden
   emit(type, data) {
@@ -125,7 +144,10 @@ export class Game {
     if (this.player.hp > s.maxHp) this.player.hp = s.maxHp;
   }
 
-  get moveSpeed() { return PLAYER_BASE_SPEED * Math.max(0.35, 1 + this.stats.speed / 100); }
+  get moveSpeed() {
+    const od = this.ult.active && this.ult.active.type === 'overdrive' ? 1.5 : 1;
+    return PLAYER_BASE_SPEED * Math.max(0.35, 1 + this.stats.speed / 100) * od;
+  }
   get cdMult() { return 1 / Math.max(0.3, 1 + this.stats.atkSpd / 100); }
   get dashCooldown() { return Math.max(0.6, 2.2 * (1 - (this.stats.dashCdr || 0) / 100)); }
   get magnetR() { return 75 * Math.max(0.5, 1 + this.stats.magnet / 100); }
@@ -144,6 +166,7 @@ export class Game {
 
   // Darf der Charakter diese Waffe tragen?
   allowedWeapon(id) {
+    if (this.char.noWeapons || !WEAPONS[id]) return false;
     return !this.char.onlyType || WEAPONS[id].type === this.char.onlyType;
   }
   weaponRange(w) {
@@ -151,7 +174,8 @@ export class Game {
     return Math.max(40, d.range + (d.type === 'melee' ? this.stats.range * 0.5 : this.stats.range));
   }
   weaponCooldown(w) {
-    const rage = this.ult.active && this.ult.active.type === 'rage' ? 0.5 : 1;
+    const ua = this.ult.active && this.ult.active.type;
+    const rage = ua === 'rage' ? 0.5 : ua === 'arsenal' ? 0.33 : 1;
     return WEAPONS[w.id].cd[w.tier] * this.cdMult * (this.raging ? 1 / 1.3 : 1) * rage;
   }
   elemMult() { return Math.max(0.1, 1 + this.stats.elem / 100); }
@@ -166,13 +190,13 @@ export class Game {
 
   canTakeWeapon(id, tier) {
     if (!this.allowedWeapon(id)) return false;
-    if (this.weapons.length < MAX_WEAPONS) return true;
+    if (this.weapons.length < this.maxWeapons) return true;
     return tier < 3 && this.weapons.some((w) => w.id === id && w.tier === tier);
   }
 
   takeWeapon(id, tier) {
     if (!this.allowedWeapon(id)) return false;
-    if (this.weapons.length < MAX_WEAPONS) {
+    if (this.weapons.length < this.maxWeapons) {
       this.addWeapon(id, tier);
       return 'added';
     }
@@ -331,7 +355,7 @@ export class Game {
       const id = pick(freeComps);
       return { type: 'comp', id, price: this.compPrice(id) };
     }
-    if (Math.random() < 0.45) {
+    if (!this.char.noWeapons && Math.random() < 0.45) {
       const id = this.randomWeaponId();
       const tier = this.rollTier(this.wave);
       return { type: 'weapon', id, tier, price: this.weaponPrice(id, tier) };
@@ -406,9 +430,15 @@ export class Game {
 
   // ================= Wellen =================
   startWave() {
-    this.wave++;
+    this.wave += this.mode === 'bossrush' ? 5 : 1;
     this.waveTime = waveDuration(this.wave);
     if (this.endless && this.wave > MAX_WAVE) this.waveTime = 55;
+    if (this.mode === 'bossrush') this.waveTime = Infinity;
+    if (this.mode === 'time') {
+      this.waveTime = TIME_ATTACK_SECONDS;
+      this.timeElapsed = 0;
+    }
+    this.clearT = 0;
     this.spawnAcc = 1.5;
     this.player.x = ARENA.w / 2;
     this.player.y = ARENA.h / 2;
@@ -421,7 +451,7 @@ export class Game {
     this.zones.length = 0;
     this.hazards.length = 0;
     this.mod = null;
-    const isBossWave = !!bossForWave(this.wave);
+    const isBossWave = this.mode !== 'time' && !!bossForWave(this.wave);
     const arena = arenaForWave(this.wave);
     if (arena !== this.arena) {
       this.arena = arena;
@@ -429,7 +459,7 @@ export class Game {
       this.hooks.toast(`${A.icon} ${A.name}: ${A.desc}`, A.border);
     }
     this.buildFeatures();
-    if (!isBossWave && (MOD_WAVES.includes(this.wave) || (this.wave > MAX_WAVE && this.wave % 3 === 0))) {
+    if (!isBossWave && this.mode !== 'time' && (MOD_WAVES.includes(this.wave) || (this.wave > MAX_WAVE && this.wave % 3 === 0) || this.hasMut('chaos'))) {
       this.mod = pick(Object.keys(WAVE_MODS));
       const M = WAVE_MODS[this.mod];
       this.hooks.toast(`${M.icon} ${M.name}: ${M.desc}`, M.color);
@@ -439,8 +469,20 @@ export class Game {
     this.bossAlive = false;
     input.reset();
     audio.play('wave');
-    const bossType = bossForWave(this.wave);
+    const bossType = this.mode === 'time' ? null : bossForWave(this.wave);
     if (bossType) this.queueBoss(bossType);
+    // GLITCH mischt jede Welle alle Waffen neu
+    if (this.char.glitch && this.weapons.length && (this.wave > 1 || this.mode === 'bossrush')) {
+      for (const w of this.weapons) {
+        if (WEAPONS[w.id].evo) continue;
+        w.id = this.randomWeaponId();
+        w.anim = null;
+        w.shards = null;
+        w.hitT = null;
+        this.emit('weapon', { id: w.id, tier: w.tier });
+      }
+      this.hooks.toast('👾 GLITCH: Waffen neu gemischt!', '#00ff9c');
+    }
   }
 
   queueBoss(type) {
@@ -476,6 +518,7 @@ export class Game {
     let r = (1.2 + this.wave * 0.25) * this.diff.spawn;
     if (this.wave === MAX_WAVE) r *= 0.45;
     else if (this.bossAlive) r *= 0.75;
+    if (this.mode === 'bossrush') r *= 0.35;
     if (this.wave > MAX_WAVE) r *= 1 + (this.wave - MAX_WAVE) * 0.06;
     if (this.mod === 'schwarm') r *= 1.8;
     return r;
@@ -510,7 +553,7 @@ export class Game {
       const type = this.pickEnemyType();
       let anchor = null;
       for (let i = 0; i < groupSize; i++) {
-        const eliteChance = this.mod === 'elitejagd' ? 0.07 : this.wave >= 12 ? 0.012 * (this.wave / 12) : 0;
+        const eliteChance = (this.mod === 'elitejagd' ? 0.07 : this.wave >= 12 ? 0.012 * (this.wave / 12) : 0) + (this.hasMut('elite') ? 0.05 : 0);
         const elite = Math.random() < eliteChance;
         this.queueSpawn(type, elite, anchor);
         anchor = this.markers[this.markers.length - 1];
@@ -534,7 +577,8 @@ export class Game {
     let speedMul = 1;
     let xpMul = 1;
     if (!def.boss) {
-      if (this.mod === 'turbo') speedMul = 1.3;
+      if (this.hasMut('turbo')) speedMul = 1.2;
+      if (this.mod === 'turbo') speedMul *= 1.3;
       else if (this.mod === 'panzer') { hpMul *= 1.5; xpMul = 1.5; }
       else if (this.mod === 'schwarm') hpMul *= 0.6;
     }
@@ -622,11 +666,23 @@ export class Game {
     if (this.waveTime !== Infinity) {
       this.waveTime -= dt;
       if (this.waveTime <= 0) {
+        if (this.mode === 'time') {
+          this.state = 'over';
+          this.timeUp = true;
+          audio.play('win');
+          setTimeout(() => this.hooks.gameOver('time'), 600);
+          return;
+        }
         if (this.bossAlive && this.boss) this.hooks.toast(`${this.boss.def.name} IST ENTKOMMEN`, '#ff3d6a');
         this.endWave();
         return;
       }
     }
+    if (this.clearT > 0) {
+      this.clearT -= dt;
+      if (this.clearT <= 0) { this.endWave(); return; }
+    }
+    if (this.mode === 'time') this.updateTimeAttack(dt);
 
     // Spieler-Bewegung
     input.update();
@@ -702,6 +758,22 @@ export class Game {
     }
   }
 
+  // Zeitangriff: alle 25 Sekunden eine Stufe härter
+  updateTimeAttack(dt) {
+    this.timeElapsed += dt;
+    const w = 1 + Math.floor(this.timeElapsed / 25);
+    if (w === this.wave) return;
+    this.wave = w;
+    this.hooks.toast(`⚠ STUFE ${w}`, '#ff3d6a');
+    const arena = arenaForWave(w);
+    if (arena !== this.arena) {
+      this.arena = arena;
+      this.buildFeatures();
+      const A = ARENAS[arena];
+      this.hooks.toast(`${A.icon} ${A.name}`, A.border);
+    }
+  }
+
   buildGrid() {
     for (const cell of this.grid) cell.length = 0;
     for (const e of this.enemies) {
@@ -772,8 +844,9 @@ export class Game {
       const d = WEAPONS[w.id];
       if (d.kind === 'orbit') { this.updateOrbit(w, d, dt); continue; }
       const slotA = (i / n) * Math.PI * 2 - Math.PI / 2 + this.time * 0.15;
-      let sx = p.x + Math.cos(slotA) * 26;
-      let sy = p.y + Math.sin(slotA) * 26;
+      const slotR = n > 6 ? 36 : 26;
+      let sx = p.x + Math.cos(slotA) * slotR;
+      let sy = p.y + Math.sin(slotA) * slotR;
       if (d.kind === 'drone') {
         // Drohne kreist weiter außen um den Spieler
         const a = this.time * 1.4 + w.uid * 2.1;
@@ -1022,7 +1095,7 @@ export class Game {
   // ================= Dash =================
   dash() {
     const p = this.player;
-    if (this.state !== 'play' || p.dashCd > 0 || p.dashT > 0) return false;
+    if (this.state !== 'play' || p.dashCd > 0 || p.dashT > 0 || this.hasMut('nodash')) return false;
     p.dashX = p.faceX;
     p.dashY = p.faceY;
     p.dashT = DASH_TIME;
@@ -1555,7 +1628,7 @@ export class Game {
       for (let i = 0; i < chunks; i++) this.dropPickup(e.x, e.y, 'chip', per + (rest-- > 0 ? 1 : 0));
     }
     const luck = 1 + Math.max(-0.5, this.stats.luck / 100);
-    if (!e.def.boss && Math.random() < 0.018 * luck) this.dropPickup(e.x, e.y, 'heal', 0);
+    if (!e.def.boss && !this.hasMut('vampire') && Math.random() < 0.018 * luck) this.dropPickup(e.x, e.y, 'heal', 0);
     if (e.elite || (!e.def.boss && Math.random() < 0.006 * luck)) this.dropPickup(e.x, e.y, 'crate', 0);
     if (e.type === 'mother') {
       for (let i = 0; i < 8; i++) {
@@ -1586,6 +1659,13 @@ export class Game {
       for (let i = 0; i < 3; i++) this.dropPickup(e.x, e.y, 'crate', 0);
       this.score += e.type === 'omega' ? 5000 : 1500;
       this.emit('boss', e.type);
+      if (this.mode === 'bossrush' && !(e.type === 'omega' && !this.endless)) {
+        const bonus = 80 + this.wave * 6;
+        this.credits += bonus;
+        this.addXp(40 + this.wave * 4);
+        this.hooks.toast(`💰 BOSS BESIEGT: +${bonus} Credits`, '#50ffc8');
+        this.clearT = 1.8;
+      }
       if (e.type === 'omega' && !this.endless) {
         // Sieg!
         for (const o of this.enemies) if (!o.dead) { o.dead = true; this.burst(o.x, o.y, o.def.color, 6, 160); }
@@ -1812,9 +1892,28 @@ export class Game {
       e.x = clamp(e.x, e.r, ARENA.w - e.r);
       e.y = clamp(e.y, e.r, ARENA.h - e.r);
 
+      if (this.char.ram) this.ramCheck(e, dist, nx, ny, dt);
       // Kontaktschaden
       if (e.frozen <= 0 && e.fuse < 0 && e.spawnT <= 0 && dist < e.r + p.r - 2) this.hurtPlayer(e.dmg, e);
     }
+  }
+
+  // ZERO: Energie-Aura verletzt alles, was sie berührt
+  ramCheck(e, dist, nx, ny, dt) {
+    e.ramCd = (e.ramCd || 0) - dt;
+    if (e.dead || e.ramCd > 0) return;
+    const over = this.ult.active && this.ult.active.type === 'overdrive';
+    const R = this.player.r + (over ? 36 : 16);
+    if (dist > e.r + R) return;
+    e.ramCd = 0.3;
+    const dmg = (10 + this.stats.melee * 2 + this.wave * 3) * Math.max(0.1, 1 + this.stats.dmg / 100) * (over ? 2 : 1);
+    this.damage(e, dmg, this.char.color, over);
+    if (!e.dead && !e.def.boss) {
+      e.kx -= nx * 280;
+      e.ky -= ny * 280;
+    }
+    this.lifesteal();
+    audio.play('hit');
   }
 
   updateTurret(e, dt, dx, dy, dist) {
@@ -2107,11 +2206,15 @@ export class Game {
   useUlt() {
     if (this.state !== 'play' || !this.ultReady) return false;
     const p = this.player;
-    const id = this.char.id;
-    const U = ULTS[id] || ULTS.vex;
+    let id = this.char.id;
+    let title = (ULTS[id] || ULTS.vex).name;
+    if (this.char.glitch) {
+      id = pick(['vex', 'nyx', 'brock', 'echo', 'ronin', 'kai', 'prisma', 'zero', 'hydra']);
+      title = `SYSTEMFEHLER → ${ULTS[id].name}`;
+    }
     this.ult.charge = 0;
     this.buildGrid();
-    this.addText(p.x, p.y - 44, U.name, this.char.color, 20, 1.3);
+    this.addText(p.x, p.y - 44, title, this.char.color, 20, 1.3);
     this.screenFlash(this.char.color, 0.45);
     this.light(p.x, p.y, 420, this.char.color, 0.6);
     this.shake = Math.max(this.shake, 9);
@@ -2143,6 +2246,8 @@ export class Game {
         p.hp = Math.min(this.stats.maxHp, p.hp + this.stats.maxHp * 0.4);
         break;
       case 'kai': start('drones', 8, { drones: [] }); break;
+      case 'zero': start('overdrive', 5); break;
+      case 'hydra': start('arsenal', 5); break;
       case 'prisma': {
         const dmg = this.ultDmg(30, 8);
         const cols = ['#ff6a2a', '#5fe3ff', '#ffe94a', '#b45cff'];
@@ -2212,6 +2317,10 @@ export class Game {
             });
           }
         }
+        break;
+      case 'overdrive':
+        p.iframes = Math.max(p.iframes, 0.1);
+        if (Math.random() < 0.6) this.particle(p.x + rand(-20, 20), p.y + rand(-20, 20), 0, 0, 0.3, this.char.color, 4);
         break;
       case 'drones': {
         u.drones.length = 6;

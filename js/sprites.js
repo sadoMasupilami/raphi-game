@@ -208,6 +208,35 @@ function playerBody(g, id, color) {
       g.lineWidth = 3;
       g.beginPath(); g.arc(0, 0, 12, 0, Math.PI * 2); g.fill(); g.stroke();
       break;
+    case 'zero': // Rammbock mit Stacheln rundherum
+      g.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        const rr = i % 2 ? 13 : 18;
+        g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      g.closePath();
+      g.fill(); g.stroke();
+      break;
+    case 'hydra': // drei Köpfe
+      for (const [x, y] of [[-10, -12], [0, -16], [10, -12]]) {
+        g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.lineWidth = 2; g.stroke();
+      }
+      g.lineWidth = 3;
+      g.beginPath(); g.arc(0, 2, 13, 0, Math.PI * 2); g.fill(); g.stroke();
+      break;
+    case 'glitch': { // verschobene RGB-Kopien
+      for (const [col, dx] of [['#ff2bd6', -3], ['#00f0ff', 3]]) {
+        neon(g, col, 2, 6);
+        g.beginPath(); g.rect(-12 + dx, -12, 24, 24); g.stroke();
+      }
+      neon(g, color, 3, 12);
+      g.beginPath(); g.rect(-12, -12, 24, 24); g.fill(); g.stroke();
+      g.fillStyle = color;
+      g.fillRect(-14, 3, 8, 3);
+      g.fillRect(6, -8, 9, 3);
+      break;
+    }
     case 'prisma': { // Prisma mit Regenbogen-Kanten
       const cols = ['#ff6a2a', '#5fe3ff', '#ffe94a', '#b45cff', '#ff4fa0', '#7dff5a'];
       for (let i = 0; i < 6; i++) {

@@ -523,6 +523,20 @@ export class Renderer {
     if (p.dashT > 0) ctx.scale(1.15, 1.15);
     drawSprite(ctx, playerSprite(game.char.id, game.char.color), 0, 0);
     ctx.restore();
+    // ZERO: sichtbare Ramm-Aura
+    if (game.char.ram) {
+      const over = game.ult.active && game.ult.active.type === 'overdrive';
+      const R = p.r + (over ? 36 : 16);
+      ctx.strokeStyle = hexToRgba(game.char.color, over ? 0.9 : 0.55);
+      ctx.lineWidth = over ? 4 : 2;
+      ctx.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const a = (i / 24) * Math.PI * 2 + game.time * 4;
+        const rr = R + (i % 2 ? -4 : 3);
+        ctx.lineTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr);
+      }
+      ctx.stroke();
+    }
     // Visier zeigt in Blickrichtung
     ctx.save();
     ctx.translate(p.x + p.faceX * 4, p.y + p.faceY * 4);

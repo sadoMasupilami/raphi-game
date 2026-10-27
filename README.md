@@ -19,7 +19,12 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 - **16 Waffen:** Nah- und Fernkampf, darunter Orbit-Splitter, Drohne, Bumerang und Napalm. Jede hat 4 Stufen, und zwei gleiche Waffen verschmelzen zur nächsten.
 - **Über 30 Items:** darunter Spezialeffekte wie Detonator, Prisma-Linse, Notfall-Protokoll, Zinsen, Dornen und Magnetpuls.
 - **12 Gegnertypen:** darunter Schildträger, Teleporter, Laser-Türme und Heiler, plus 2 Bosse.
-- **7 Charaktere:** 3 davon werden über Erfolge freigeschaltet (RONIN, KAI, PRISMA).
+- **10 Charaktere:** 6 davon werden über Erfolge freigeschaltet, darunter ZERO (keine Waffen, rammt Gegner), HYDRA (12 Waffenplätze) und GLITCH (Waffen werden jede Welle neu gemischt).
+- **4 Spielmodi:**
+  - Kampagne
+  - Boss-Rush (nur Bosse, dazwischen Shop)
+  - Tägliche Herausforderung (jeden Tag für alle gleicher Charakter, gleiche Startwaffe und zwei Besonderheiten)
+  - Zeitangriff (5 Minuten, so viele Kills wie möglich)
 - **Fortschritt:** 13 Erfolge, ein Logbuch mit Statistiken und allen Entdeckungen, ein Tutorial beim ersten Start und ein Highscore pro Schwierigkeit.
 - **Lesbarkeit:** Pfeile am Rand zeigen Boss, Elites und Kapseln außerhalb der Sicht. Explosionen und Laser werden vorher angekündigt.
 - **Soundtrack:** 8 eigene Songs, komplett live synthetisiert. Die Kampfmusik wechselt alle 5 Wellen und wird dabei schneller und härter:

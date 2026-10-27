@@ -1,6 +1,6 @@
 // Einstieg: Menüs, HUD, Shop, Level-Up und Spielschleife
 import {
-  ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, ENEMIES, STAT_DEFS, SPECIAL_DEFS,
+  ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, ENEMIES, MODES, DAILY_MUTATORS, STAT_DEFS, SPECIAL_DEFS,
   BASE_STATS, WAVE_MODS, bossForWave, ARENAS, EVOLUTIONS, EVO_COLOR, ULTS, COMPANIONS, MAX_COMPANIONS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
 } from './data.js';
 import { Game } from './game.js';
@@ -25,6 +25,8 @@ function loadStore() {
     highscores: {},
     lastChar: 'vex',
     lastDiff: 'normal',
+    lastMode: 'campaign',
+    modeRecords: {},
     progress: null,
     tutorial: {},
   };
@@ -58,6 +60,38 @@ const progress = new Progress(store, saveStore, (t, c) => toast(t, c));
 let game = null;
 let selectedChar = store.lastChar;
 let selectedDiff = store.lastDiff;
+let selectedMode = MODES[store.lastMode] ? store.lastMode : 'campaign';
+
+// ================= Tägliche Herausforderung =================
+function mulberry32(a) {
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// Für alle Spieler am selben Tag gleich: Charakter, Startwaffe, zwei Besonderheiten
+function dailyConfig() {
+  const key = todayKey();
+  const rng = mulberry32(Number(key.replace(/-/g, '')));
+  const pickR = (arr) => arr[Math.floor(rng() * arr.length)];
+  const char = pickR(CHARACTERS);
+  const weapons = Object.keys(WEAPONS).filter((id) => !WEAPONS[id].evo && (!char.onlyType || WEAPONS[id].type === char.onlyType));
+  const weapon = char.noWeapons ? null : pickR(weapons);
+  const pool = Object.keys(DAILY_MUTATORS).filter((m) => !(m === 'nodash' && char.id === 'zero'));
+  const muts = [];
+  while (muts.length < 2) {
+    const m = pickR(pool);
+    if (!muts.includes(m)) muts.push(m);
+  }
+  return { key, charId: char.id, weapon, muts };
+}
 let wakeLock = null;
 
 window.addEventListener('resize', () => renderer.resize());
@@ -197,6 +231,10 @@ function renderHighscores() {
     const h = store.highscores[k];
     return `<div><b>${d.name.toUpperCase()}</b> &nbsp; ${h ? `Welle ${h.wave}${h.win ? ' 🏆' : ''} · ${h.score.toLocaleString('de-DE')} Punkte` : '—'}</div>`;
   });
+  const r = store.modeRecords || {};
+  if (r.bossrush) rows.push(`<div><b>BOSS-RUSH</b> &nbsp; ${r.bossrush.win ? '🏆 ' : ''}${r.bossrush.score.toLocaleString('de-DE')} Punkte</div>`);
+  if (r.time) rows.push(`<div><b>ZEITANGRIFF</b> &nbsp; ${r.time.kills} Gegner</div>`);
+  if (r.daily && r.daily.date === todayKey()) rows.push(`<div><b>HEUTE</b> &nbsp; Welle ${r.daily.wave} · ${r.daily.score.toLocaleString('de-DE')} Punkte</div>`);
   $('#highscores').innerHTML = `<div style="margin-bottom:4px">REKORDE</div>${rows.join('')}`;
 }
 
@@ -223,6 +261,32 @@ $('#btn-select-back').onclick = () => showMenu();
 
 function renderSelect() {
   if (!isUnlocked(store.progress, selectedChar)) selectedChar = 'vex';
+  $('#mode-row').innerHTML = Object.entries(MODES).map(([k, m]) =>
+    `<button class="btn mode-btn ${k === selectedMode ? 'selected' : ''}" data-mode="${k}"><span class="mi">${m.icon}</span>${m.name}</button>`).join('');
+  $('#mode-row').querySelectorAll('[data-mode]').forEach((el) => {
+    el.onclick = () => { selectedMode = el.dataset.mode; renderSelect(); };
+  });
+  $('#mode-desc').textContent = MODES[selectedMode].desc;
+  const daily = selectedMode === 'daily';
+  $('#char-grid').classList.toggle('hidden', daily);
+  $('#select-title').classList.toggle('hidden', daily);
+  $('#diff-title').classList.toggle('hidden', daily);
+  $('#diff-row').classList.toggle('hidden', daily);
+  if (daily) {
+    const dc = dailyConfig();
+    const c = CHARACTERS.find((x) => x.id === dc.charId);
+    const wd = dc.weapon ? WEAPONS[dc.weapon] : null;
+    const rec = store.modeRecords && store.modeRecords.daily && store.modeRecords.daily.date === dc.key ? store.modeRecords.daily : null;
+    $('#daily-info').innerHTML = `<div class="daily-card" style="--c:${c.color}">
+      <div class="dc-head"><img src="${playerIconURL(c.id, c.color)}" alt="">
+        <div><div class="char-name">${c.name}</div><div class="char-title">${c.title}</div>
+        ${wd ? `<div class="char-weapon"><img src="${weaponIconURL(dc.weapon, ELEMENTS[wd.elem].color)}" alt="">${wd.name}</div>` : '<div class="char-weapon">Keine Waffe – nur Rammen!</div>'}</div></div>
+      <div class="dc-muts">${dc.muts.map((m) => `<div class="dc-mut">${DAILY_MUTATORS[m].icon} ${DAILY_MUTATORS[m].name}<small>${DAILY_MUTATORS[m].desc}</small></div>`).join('')}</div>
+      <div class="dc-best">📅 ${dc.key} · Schwierigkeit Normal · ${rec ? `Dein Bestwert heute: Welle ${rec.wave}, ${rec.score.toLocaleString('de-DE')} Punkte` : 'Noch nicht gespielt'}</div>
+    </div>`;
+  } else {
+    $('#daily-info').innerHTML = '';
+  }
   $('#char-grid').innerHTML = CHARACTERS.map((c) => {
     const wd = WEAPONS[c.weapon];
     if (!isUnlocked(store.progress, c.id)) {
@@ -241,7 +305,7 @@ function renderSelect() {
       <img class="char-avatar-img" src="${playerIconURL(c.id, c.color)}" alt="">
       <div class="char-name">${c.name}</div>
       <div class="char-title">${c.title}</div>
-      <div class="char-weapon"><img src="${weaponIconURL(c.weapon, ELEMENTS[wd.elem].color)}" alt="">${wd.name}</div>
+      <div class="char-weapon">${wd ? `<img src="${weaponIconURL(c.weapon, ELEMENTS[wd.elem].color)}" alt="">${wd.name}` : '💢 Ramm-Aura'}</div>
       <ul class="char-perks">${perks}${ultLine}</ul>
     </div>`;
   }).join('');
@@ -262,6 +326,7 @@ function renderSelect() {
 $('#btn-start').onclick = () => {
   store.lastChar = selectedChar;
   store.lastDiff = selectedDiff;
+  store.lastMode = selectedMode;
   saveStore();
   tryFullscreen();
   startGame();
@@ -286,16 +351,29 @@ const hooks = {
 };
 
 function startGame() {
-  game = new Game(selectedChar, selectedDiff, hooks);
+  if (selectedMode === 'daily') {
+    const dc = dailyConfig();
+    game = new Game(dc.charId, 'normal', hooks, { mode: 'daily', daily: { muts: dc.muts, weapon: dc.weapon, key: dc.key } });
+  } else {
+    game = new Game(selectedChar, selectedDiff, hooks, { mode: selectedMode });
+  }
   game.dmgMode = store.settings.dmgMode;
   game.lowFx = lowFxActive();
   $('#ult-icon').textContent = (ULTS[game.char.id] || ULTS.vex).icon;
   hideAll();
   $('#hud').classList.remove('hidden');
   $('#boss-bar').classList.add('hidden');
+  requestWakeLock();
+  if (game.mode === 'bossrush') {
+    // Boss-Rush: mit Startkapital und 4 Level-Ups direkt in den Shop
+    game.credits += 150;
+    game.addXp(86);
+    game.state = 'intermission';
+    afterWave();
+    return;
+  }
   game.startWave();
   renderer.updateCamera(game, true);
-  requestWakeLock();
 }
 
 function resumePlay() {
@@ -366,7 +444,7 @@ function showLevelUp(onDone) {
           <div class="card-desc">${statLine(c.key, c.val)}</div></div></button>`;
       }
       const d = WEAPONS[c.id];
-      const merge = game.weapons.length >= MAX_WEAPONS;
+      const merge = game.weapons.length >= game.maxWeapons;
       return `<button class="card" data-i="${i}" style="--tc:${tc}">
         <div class="card-icon"><img src="${weaponIconURL(c.id, ELEMENTS[d.elem].color)}" alt=""></div>
         <div class="card-body"><div class="card-title">${d.name}</div><div class="card-tier">NEUE WAFFE · ${TIER_NAMES[c.tier]}${merge ? ' · verschmilzt' : ''}</div>
@@ -402,6 +480,7 @@ function showLevelUp(onDone) {
 
 // ================= Wellenende =================
 function shopAfterWave(w) {
+  if (game && game.mode === 'bossrush') return true;
   return w % SHOP_EVERY === 0 || w === MAX_WAVE - 1 || w >= MAX_WAVE;
 }
 
@@ -482,7 +561,8 @@ function nextWave() {
   hideAll();
   game.startWave();
   renderer.updateCamera(game, true);
-  if (game.wave === MAX_WAVE) toast('FINALE WELLE: Zerstöre den OMEGA-KERN!', '#ff3d6a');
+  if (game.mode === 'bossrush') toast(`BOSS ${game.wave / 5}/4: ${ENEMIES[bossForWave(game.wave)].name}`, '#ff3d6a');
+  else if (game.wave === MAX_WAVE) toast('FINALE WELLE: Zerstöre den OMEGA-KERN!', '#ff3d6a');
   else toast(`WELLE ${game.wave}`, '#00f0ff');
 }
 
@@ -490,7 +570,9 @@ function nextWave() {
 function renderShop(info) {
   const g = game;
   $('#shop-credits').textContent = g.credits;
-  if (info) {
+  if (info && g.mode === 'bossrush') {
+    $('#shop-sub').textContent = g.wave === 0 ? 'Rüste dich für den ersten Boss aus!' : `Boss ${g.wave / 5} besiegt · Nächster Gegner: ${ENEMIES[bossForWave(g.wave + 5)].name}`;
+  } else if (info) {
     $('#shop-sub').textContent = `Welle ${g.wave} geschafft · +${Math.round(info.collected)} Credits · Ernte +${info.harvest}${info.interest ? ` · Zinsen +${info.interest}` : ''}`;
   }
   $('#shop-offers').innerHTML = g.shopOffers.map((o, i) => {
@@ -562,9 +644,9 @@ function renderShop(info) {
 
 function renderInventory() {
   const g = game;
-  $('#weapon-count').textContent = `${g.weapons.length}/${MAX_WEAPONS}`;
+  $('#weapon-count').textContent = `${g.weapons.length}/${g.maxWeapons}`;
   let html = '';
-  for (let i = 0; i < MAX_WEAPONS; i++) {
+  for (let i = 0; i < g.maxWeapons; i++) {
     const w = g.weapons[i];
     if (!w) { html += `<div class="slot empty"></div>`; continue; }
     const d = WEAPONS[w.id];
@@ -755,6 +837,7 @@ function renderHowto() {
 function showGameOver(win, quit = false) {
   if (!game) return;
   const g = game;
+  if (g.mode !== 'campaign') { showModeOver(g, win, quit); return; }
   if (win && !g.endless) g.score += 10000;
   progress.runEnd(g, win);
   const key = g.diffId;
@@ -780,6 +863,44 @@ function showGameOver(win, quit = false) {
     Punkte: <span class="big-num">${g.score.toLocaleString('de-DE')}</span><br>
     ${record ? '<span class="new-record">★ NEUER REKORD ★</span>' : `Rekord: ${store.highscores[key].score.toLocaleString('de-DE')}`}`;
   $('#btn-endless').classList.toggle('hidden', !win);
+  $('#hud').classList.add('hidden');
+  show('over');
+}
+
+// Ergebnis für Boss-Rush, tägliche Herausforderung und Zeitangriff
+function showModeOver(g, result, quit) {
+  const win = result === true;
+  const timeUp = result === 'time';
+  if (win && !g.endless) g.score += 10000;
+  progress.runEnd(g, win);
+  store.modeRecords = store.modeRecords || {};
+  const R = store.modeRecords;
+  let record = false;
+  let line = '';
+  if (g.mode === 'bossrush') {
+    if (!R.bossrush || g.score > R.bossrush.score) { R.bossrush = { score: g.score, win, char: g.char.id }; record = true; }
+    line = `Bosse besiegt: <span class="big-num">${Math.max(0, g.wave / 5 - (win ? 0 : 1))}/4</span>`;
+  } else if (g.mode === 'time') {
+    if (!R.time || g.kills > R.time.kills) { R.time = { kills: g.kills, score: g.score, char: g.char.id }; record = true; }
+    line = `Erreichte Stufe: <span class="big-num">${g.wave}</span> · Zeit: <span class="big-num">${Math.floor(g.timeElapsed / 60)}:${String(Math.floor(g.timeElapsed % 60)).padStart(2, '0')}</span>`;
+  } else {
+    const key = g.daily ? g.daily.key : todayKey();
+    if (!R.daily || R.daily.date !== key || g.score > R.daily.score) { R.daily = { date: key, score: g.score, wave: g.wave, char: g.char.id }; record = true; }
+    line = `Welle: <span class="big-num">${g.wave}</span> · ${g.daily.muts.map((m) => DAILY_MUTATORS[m].icon).join(' ')}`;
+  }
+  saveStore();
+  audio.play(win || timeUp ? 'win' : 'gameover');
+  const M = MODES[g.mode];
+  $('#over-title').textContent = win ? `${M.name}: SIEG! 🏆` : timeUp ? 'ZEIT ABGELAUFEN!' : quit ? 'MISSION ABGEBROCHEN' : 'SYSTEM ZERSTÖRT';
+  $('#over-title').classList.toggle('glow-yellow', win || timeUp);
+  const rec = g.mode === 'time' ? `${R.time.kills} Gegner` : `${(R[g.mode] || {}).score?.toLocaleString('de-DE')} Punkte`;
+  $('#over-summary').innerHTML = `
+    ${M.icon} ${M.name} · ${g.char.name}<br>
+    ${line}<br>
+    Besiegt: <span class="big-num">${g.kills}</span> &nbsp; Level: <span class="big-num">${g.level}</span><br>
+    Punkte: <span class="big-num">${g.score.toLocaleString('de-DE')}</span><br>
+    ${record ? '<span class="new-record">★ NEUER REKORD ★</span>' : `Rekord: ${rec}`}`;
+  $('#btn-endless').classList.toggle('hidden', !(win && g.mode === 'bossrush'));
   $('#hud').classList.add('hidden');
   show('over');
 }
@@ -972,7 +1093,11 @@ function updateHUD() {
   setScale('xp-fill', g.xp / g.xpNeeded());
   setText('xp-text', `LV ${g.level}`);
   setText('credits', String(g.credits));
-  setText('wave-label', g.endless && g.wave > MAX_WAVE ? `ENDLOS ${g.wave}` : `WELLE ${g.wave}/${MAX_WAVE}`);
+  let label = g.endless && g.wave > MAX_WAVE ? `ENDLOS ${g.wave}` : `WELLE ${g.wave}/${MAX_WAVE}`;
+  if (g.mode === 'bossrush') label = `BOSS ${Math.max(1, g.wave / 5)}/4`;
+  else if (g.mode === 'time') label = `ZEIT · STUFE ${g.wave}`;
+  else if (g.mode === 'daily') label = `📅 ${label}`;
+  setText('wave-label', label);
   let timer;
   if (g.waveTime === Infinity || (g.bossAlive && g.waveTime <= 0)) timer = 'BOSS';
   else timer = String(Math.max(0, Math.ceil(g.waveTime)));

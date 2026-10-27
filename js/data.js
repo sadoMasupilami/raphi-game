@@ -194,6 +194,9 @@ export const ULTS = {
   echo: { name: 'SCHATTENSCHWARM', icon: '🌑', desc: '6 s lang feuerst du unentwegt Void-Geschosse.' },
   ronin: { name: 'BLUTRAUSCH', icon: '🩸', desc: '6 s doppeltes Angriffstempo, +50% Schaden, sofort 40% Heilung.' },
   kai: { name: 'DROHNENSCHWARM', icon: '🛸', desc: '8 s lang kämpfen 6 Extra-Drohnen für dich.' },
+  zero: { name: 'OVERDRIVE', icon: '💢', desc: '5 s unverwundbar, 50% schneller und doppelte Ramm-Aura.' },
+  hydra: { name: 'ARSENAL', icon: '🔫', desc: '5 s lang feuern alle Waffen dreimal so schnell.' },
+  glitch: { name: 'SYSTEMFEHLER', icon: '👾', desc: 'Löst zufällig die Ultimate eines anderen Charakters aus.' },
   prisma: { name: 'PRISMA-NOVA', icon: '🌈', desc: 'Alle 4 Elemente treffen gleichzeitig alles in der Nähe.' },
 };
 
@@ -341,7 +344,42 @@ export const CHARACTERS = [
     stats: { reactionMult: 75, elem: 15, dmg: -15 },
     perks: ['Startet mit Feuer- und Eiswaffe', '+75% Reaktionsschaden', '+15% Elementarschaden', '−15% Schaden'],
   },
+  {
+    id: 'zero', name: 'ZERO', title: 'Rammbock', color: '#ff9a3d', weapon: null, noWeapons: true, ram: true,
+    stats: { maxHp: 30, armor: 6, speed: 10, melee: 4, dashDmg: 2, dashCdr: 20 },
+    perks: ['Keine Waffen – rammt Gegner mit einer Energie-Aura', '+30 Max. HP', '+6 Rüstung', '+10% Tempo', 'Dash verletzt Gegner'],
+  },
+  {
+    id: 'hydra', name: 'HYDRA', title: 'Waffennarr', color: '#ff66cc', weapon: 'plasmaBlaster', slots: 12, randomStart: 2,
+    stats: { dmg: -35, atkSpd: 5 },
+    perks: ['12 Waffenplätze statt 6', 'Startet mit 3 Waffen', '+5% Angriffstempo', '−35% Schaden'],
+  },
+  {
+    id: 'glitch', name: 'GLITCH', title: 'Zufallsgenerator', color: '#00ff9c', weapon: 'teslaSpule', glitch: true,
+    stats: { crit: 20, luck: 20 },
+    perks: ['Jede Welle: alle Waffen werden zufällig neu gemischt', '+20% Krit-Chance', '+20 Glück', 'Ultimate ist jedes Mal eine andere'],
+  },
 ];
+
+// Spielmodi
+export const MODES = {
+  campaign: { name: 'KAMPAGNE', icon: '🏙️', desc: '20 Wellen, 4 Bosse. Rette die Stadt!' },
+  bossrush: { name: 'BOSS-RUSH', icon: '👾', desc: 'Nur Bosse, einer nach dem anderen. Zwischen den Kämpfen: Shop.' },
+  daily: { name: 'TÄGLICH', icon: '📅', desc: 'Jeden Tag ein neuer Charakter, eine Startwaffe und zwei Besonderheiten – für alle gleich.' },
+  time: { name: 'ZEITANGRIFF', icon: '⏱️', desc: '5 Minuten, eine endlose Welle, die immer härter wird. Wie viele besiegst du?' },
+};
+export const TIME_ATTACK_SECONDS = 300;
+
+// Besonderheiten der täglichen Herausforderung
+export const DAILY_MUTATORS = {
+  glass: { name: 'Glaskanone', icon: '🔮', desc: '+60% Schaden, aber nur halbe HP' },
+  rich: { name: 'Startkapital', icon: '💰', desc: 'Start mit 150 Credits' },
+  turbo: { name: 'Hochdruck', icon: '⚡', desc: 'Alle Gegner 20% schneller' },
+  elite: { name: 'Elite-Tag', icon: '👑', desc: 'Viel mehr Elite-Gegner' },
+  chaos: { name: 'Chaos', icon: '🎲', desc: 'Jede Welle hat einen Modifikator' },
+  nodash: { name: 'Ohne Dash', icon: '🚫', desc: 'Kein Dash, dafür +20% Tempo' },
+  vampire: { name: 'Blutmond', icon: '🩸', desc: '+10% Lebensraub, keine Heilpakete' },
+};
 
 // Gegner
 export const ENEMIES = {
