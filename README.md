@@ -10,6 +10,9 @@ Ein futuristisches Survivor-Spiel im Stil von Brotato und Vampire Survivors, gem
 - **20 Wellen:** Welle 10 hat einen Zwischenboss (WÄCHTER), Welle 20 den Endboss (OMEGA-KERN). Nach dem Sieg kann man im Endlos-Modus weiterspielen.
 - **Wellen-Modifikatoren:** einzelne Wellen sind besonders, z. B. Turbo, Panzerung, Schwarm, Explosiv oder Elite-Jagd.
 - **4 Elemente und 6 Reaktionen:** 🔥 Feuer, ❄️ Eis, ⚡ Blitz und 🌀 Void. Ein zweites Element auf einem markierten Gegner löst eine Reaktion aus.
+- **Ultimate-Fähigkeiten:** Jeder Charakter hat eine eigene Spezialattacke, die sich durch Kills auflädt (goldener Knopf, am PC Q).
+- **Waffen-Evolution:** Eine Stufe-IV-Waffe plus das passende Item wird zu einer von 8 legendären Waffen, z. B. Sonnenklinge oder Gewittersturm.
+- **Spektakel:** Zeitlupe und Kamera-Zoom bei Boss-Auftritt und Boss-Tod, Glitch-Effekt bei Treffern, Bildschirmblitze und Licht bei Explosionen.
 - **16 Waffen:** Nah- und Fernkampf, darunter Orbit-Splitter, Drohne, Bumerang und Napalm. Jede hat 4 Stufen, und zwei gleiche Waffen verschmelzen zur nächsten.
 - **Über 30 Items:** darunter Spezialeffekte wie Detonator, Prisma-Linse, Notfall-Protokoll, Zinsen, Dornen und Magnetpuls.
 - **12 Gegnertypen:** darunter Schildträger, Teleporter, Laser-Türme und Heiler, plus 2 Bosse.

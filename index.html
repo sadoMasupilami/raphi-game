@@ -38,6 +38,7 @@
       <button id="btn-pause" class="icon-btn" aria-label="Pause">II</button>
     </div>
     <button id="btn-dash" class="dash-btn ready" aria-label="Dash"><span>DASH</span></button>
+    <button id="btn-ult" class="ult-btn" aria-label="Ultimate"><span class="ult-icon" id="ult-icon">⚡</span><span class="ult-label">ULT</span></button>
     <div id="boss-bar" class="hidden">
       <div class="boss-name" id="boss-name">BOSS</div>
       <div class="bar boss"><div class="fill" id="boss-fill"></div></div>
@@ -120,6 +121,11 @@
       <div class="inventory items" id="inv-items"></div>
       <button class="btn primary" id="btn-shop-next">NÄCHSTE WELLE ▶</button>
     </div>
+  </section>
+
+  <!-- Evolution -->
+  <section id="screen-evo" class="screen hidden dim">
+    <div class="panel narrow evo-panel" id="evo-panel"></div>
   </section>
 
   <!-- Waffen-Detail -->

@@ -109,6 +109,14 @@ const SOUNDS = {
   shield: { gap: 0.2, fn: (t) => tone(t, { type: 'triangle', f0: 1400, f1: 700, dur: 0.2, vol: 0.12 }) },
   levelup: { gap: 0.3, fn: (t) => { [523, 659, 784, 1046].forEach((f, i) => tone(t + i * 0.07, { type: 'square', f0: f, dur: 0.12, vol: 0.08 })); } },
   buy: { gap: 0.1, fn: (t) => { tone(t, { type: 'square', f0: 880, dur: 0.06, vol: 0.07 }); tone(t + 0.06, { type: 'square', f0: 1320, dur: 0.08, vol: 0.07 }); } },
+  ult: { gap: 0.5, fn: (t) => {
+    noise(t, { dur: 0.8, vol: 0.25, freq: 6000, type: 'bandpass', q: 0.6 });
+    tone(t, { type: 'sawtooth', f0: 110, f1: 880, dur: 0.5, vol: 0.12 });
+    [523, 659, 784, 1046].forEach((f) => tone(t + 0.15, { type: 'square', f0: f, dur: 0.5, vol: 0.05 }));
+    tone(t, { type: 'sine', f0: 90, f1: 30, dur: 0.7, vol: 0.35 });
+  } },
+  ultReady: { gap: 1, fn: (t) => { [784, 988, 1175, 1568].forEach((f, i) => tone(t + i * 0.06, { type: 'triangle', f0: f, dur: 0.15, vol: 0.08 })); } },
+  evolve: { gap: 1, fn: (t) => { [392, 523, 659, 784, 1046, 1318].forEach((f, i) => tone(t + i * 0.09, { type: 'square', f0: f, dur: 0.3, vol: 0.07 })); noise(t + 0.5, { dur: 0.6, vol: 0.15, freq: 5000, type: 'highpass' }); } },
   click: { gap: 0.05, fn: (t) => tone(t, { type: 'square', f0: 660, dur: 0.04, vol: 0.05 }) },
   error: { gap: 0.15, fn: (t) => tone(t, { type: 'square', f0: 160, f1: 120, dur: 0.15, vol: 0.08 }) },
   wave: { gap: 0.5, fn: (t) => { [392, 523, 659].forEach((f, i) => tone(t + i * 0.1, { type: 'sawtooth', f0: f, dur: 0.18, vol: 0.06 })); } },

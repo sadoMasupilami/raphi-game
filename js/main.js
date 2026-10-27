@@ -1,7 +1,7 @@
 // Einstieg: Menüs, HUD, Shop, Level-Up und Spielschleife
 import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, WEAPONS, ITEMS, CHARACTERS, DIFFICULTIES, ENEMIES, STAT_DEFS, SPECIAL_DEFS,
-  BASE_STATS, WAVE_MODS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
+  BASE_STATS, WAVE_MODS, EVOLUTIONS, EVO_COLOR, ULTS, TIER_COLORS, TIER_NAMES, MAX_WAVE, SHOP_EVERY, MAX_WEAPONS, BOLT_SHOCK_TIME,
 } from './data.js';
 import { Game } from './game.js';
 import { Renderer } from './render.js';
@@ -83,7 +83,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ================= Screens =================
-const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over', 'codex'];
+const SCREENS = ['menu', 'select', 'levelup', 'wave', 'shop', 'weapon', 'pause', 'stats', 'settings', 'howto', 'over', 'codex', 'evo'];
 function show(name) {
   for (const s of SCREENS) $(`#screen-${s}`).classList.toggle('hidden', s !== name);
 }
@@ -138,8 +138,14 @@ function statLine(key, val) {
 
 function itemDesc(id) {
   const it = ITEMS[id];
-  return Object.entries(it.stats).map(([k, v]) => statLine(k, v)).join('<br>');
+  let html = Object.entries(it.stats).map(([k, v]) => statLine(k, v)).join('<br>');
+  const evo = EVOLUTIONS.find((v) => v.item === id);
+  if (evo) html += `<br><span class="evo-hint">⭐ Entwickelt ${WEAPONS[evo.weapon].name} (Stufe IV)</span>`;
+  return html;
 }
+
+const tierColor = (id, tier) => (WEAPONS[id].evo ? EVO_COLOR : TIER_COLORS[tier]);
+const tierName = (id, tier) => (WEAPONS[id].evo ? '★ LEGENDÄR' : TIER_NAMES[tier]);
 
 function elemTag(elem) {
   const e = ELEMENTS[elem];
@@ -165,6 +171,10 @@ function weaponInfo(id, tier, g = game) {
   if (d.aoe) lines.push(`Fläche: <b>${d.aoe[tier]}</b>`);
   if (d.count) lines.push(`Anzahl: <b>${d.count[tier]}</b>`);
   if (d.dur) lines.push(`Brenndauer: <b>${d.dur} s</b>`);
+  if (d.blast) lines.push(`💥 Explodiert beim Aufprall (Fläche ${d.blast})`);
+  if (d.drain) lines.push(`🩸 Jeder Treffer heilt dich`);
+  const evo = EVOLUTIONS.find((v) => v.weapon === id);
+  if (evo) lines.push(`<span class="evo-hint">⭐ Evolution: Stufe IV + ${ITEMS[evo.item].icon} ${ITEMS[evo.item].name} → ${WEAPONS[evo.into].name}</span>`);
   return lines;
 }
 
@@ -225,12 +235,14 @@ function renderSelect() {
       </div>`;
     }
     const perks = c.perks.map((p) => `<li class="${p.startsWith('−') || p.startsWith('⚠') ? 'neg' : 'pos'}">${p}</li>`).join('');
+    const U = ULTS[c.id];
+    const ultLine = U ? `<li class="ult" title="${U.desc}">${U.icon} Ultimate: ${U.name}</li>` : '';
     return `<div class="char-card ${c.id === selectedChar ? 'selected' : ''}" data-id="${c.id}" style="--c:${c.color}">
       <img class="char-avatar-img" src="${playerIconURL(c.id, c.color)}" alt="">
       <div class="char-name">${c.name}</div>
       <div class="char-title">${c.title}</div>
       <div class="char-weapon"><img src="${weaponIconURL(c.weapon, ELEMENTS[wd.elem].color)}" alt="">${wd.name}</div>
-      <ul class="char-perks">${perks}</ul>
+      <ul class="char-perks">${perks}${ultLine}</ul>
     </div>`;
   }).join('');
   $('#char-grid').querySelectorAll('.char-card:not(.locked)').forEach((el) => {
@@ -268,6 +280,7 @@ const hooks = {
   vibrate,
   event: (type, data, g) => {
     progress.event(g, type, data);
+    if (type === 'ultReady') tut.show('ult', '⚡ <b>ULTIMATE BEREIT!</b> Tippe auf den goldenen Knopf über DASH.', 6000);
     if (type === 'reaction') tut.show('reaction', '✨ <b>REAKTION!</b> Zwei verschiedene Elemente auf einem Gegner lösen Spezialeffekte aus.', 4500);
   },
 };
@@ -276,6 +289,7 @@ function startGame() {
   game = new Game(selectedChar, selectedDiff, hooks);
   game.dmgMode = store.settings.dmgMode;
   game.lowFx = lowFxActive();
+  $('#ult-icon').textContent = (ULTS[game.char.id] || ULTS.vex).icon;
   hideAll();
   $('#hud').classList.remove('hidden');
   $('#boss-bar').classList.add('hidden');
@@ -307,6 +321,12 @@ $('#btn-dash').addEventListener('pointerdown', (e) => {
   audio.init();
   if (game && game.dash()) vibrate(12);
 });
+$('#btn-ult').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  audio.init();
+  if (game && game.useUlt()) vibrate(60);
+});
 $('#btn-resume').onclick = () => resumePlay();
 $('#btn-pause-stats').onclick = () => { renderStats(); openOverlay('stats'); };
 $('#btn-pause-settings').onclick = () => { renderSettings(); openOverlay('settings'); };
@@ -321,6 +341,7 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     game.dash();
   }
+  if ((e.key === 'q' || e.key === 'e' || e.key === 'Shift') && game) game.useUlt();
   if ((e.key === 'Escape' || e.key === 'p') && game) {
     if (game.state === 'play') pauseGame();
     else if (game.state === 'paused') resumePlay();
@@ -391,6 +412,11 @@ function afterWave() {
     showLevelUp(() => afterWave());
     return;
   }
+  const evos = game.availableEvolutions();
+  if (evos.length) {
+    showEvolution(evos[0], () => afterWave());
+    return;
+  }
   const info = game.lastWaveInfo || { collected: 0, harvest: 0 };
   if (game.crateItems && game.crateItems.length) {
     for (const id of game.crateItems) toast(`${ITEMS[id].icon} ${ITEMS[id].name} erhalten!`, '#ffd740');
@@ -419,6 +445,31 @@ function afterWave() {
       : `Schwarzmarkt öffnet in ${left} Welle${left === 1 ? '' : 'n'}.`;
     show('wave');
   }
+}
+
+function showEvolution({ index, evo }, onDone) {
+  const base = WEAPONS[evo.weapon];
+  const into = WEAPONS[evo.into];
+  const it = ITEMS[evo.item];
+  const col = ELEMENTS[into.elem].color;
+  $('#evo-panel').innerHTML = `
+    <h2>⭐ EVOLUTION!</h2>
+    <p class="sub">Deine Waffe hat Stufe IV erreicht und passt zu einem Item.</p>
+    <div class="evo-recipe">
+      <img src="${weaponIconURL(evo.weapon, ELEMENTS[base.elem].color)}" alt="">+<span>${it.icon}</span>→
+      <span class="evo-result"><img src="${weaponIconURL(evo.into, col)}" alt=""></span>
+    </div>
+    <div class="evo-name">${into.name}</div>
+    <p class="sub">${base.name} + ${it.name}</p>
+    <div class="detail-stats">${into.desc}<br>${weaponInfo(evo.into, 3).slice(0, 3).join('<br>')}</div>
+    <button class="btn primary big" id="btn-evolve">⭐ EVOLVIEREN!</button>`;
+  show('evo');
+  audio.play('evolve');
+  $('#btn-evolve').onclick = () => {
+    game.evolve(index, evo.into);
+    toast(`⭐ ${into.name} geschmiedet!`, EVO_COLOR);
+    onDone();
+  };
 }
 
 $('#btn-wave-next').onclick = () => nextWave();
@@ -510,9 +561,9 @@ function renderInventory() {
     if (!w) { html += `<div class="slot empty"></div>`; continue; }
     const d = WEAPONS[w.id];
     const canMerge = g.mergeTarget(i) >= 0;
-    html += `<button class="slot" data-w="${i}" style="--tc:${TIER_COLORS[w.tier]}">
+    html += `<button class="slot" data-w="${i}" style="--tc:${tierColor(w.id, w.tier)}">
       <img src="${weaponIconURL(w.id, ELEMENTS[d.elem].color)}" alt="${d.name}">
-      <span class="count">${['I', 'II', 'III', 'IV'][w.tier]}</span>
+      <span class="count">${d.evo ? '★' : ['I', 'II', 'III', 'IV'][w.tier]}</span>
       ${canMerge ? '<span class="merge-dot">+</span>' : ''}</button>`;
   }
   $('#inv-weapons').innerHTML = html;
@@ -542,8 +593,8 @@ function showWeaponDetail(i) {
   $('#weapon-detail').innerHTML = `
     <div class="weapon-detail-head">
       <img src="${weaponIconURL(w.id, ELEMENTS[d.elem].color)}" alt="">
-      <div><div class="card-title" style="--tc:${TIER_COLORS[w.tier]};color:${TIER_COLORS[w.tier]}">${d.name}</div>
-      <div class="card-tier">${TIER_NAMES[w.tier]} · ${d.type === 'melee' ? 'Nahkampf' : 'Fernkampf'}</div>${elemTag(d.elem)}</div>
+      <div><div class="card-title" style="--tc:${tierColor(w.id, w.tier)};color:${tierColor(w.id, w.tier)}">${d.name}</div>
+      <div class="card-tier">${tierName(w.id, w.tier)} · ${d.type === 'melee' ? 'Nahkampf' : 'Fernkampf'}</div>${elemTag(d.elem)}</div>
     </div>
     <p class="sub" style="text-align:left">${d.desc}</p>
     <div class="detail-stats">${weaponInfo(w.id, w.tier).join('<br>')}</div>
@@ -589,7 +640,7 @@ function renderStats() {
   if (extras.length) html += `<div style="margin-top:8px">${extras.map((e) => `<div class="stat-extra">★ ${e}</div>`).join('')}</div>`;
   html += `<h3>WAFFEN</h3>${g.weapons.map((w) => {
     const d = WEAPONS[w.id];
-    return `<div class="stat-row"><span style="color:${ELEMENTS[d.elem].color}">${ELEMENTS[d.elem].icon} ${d.name}</span><span class="v" style="color:${TIER_COLORS[w.tier]}">${['I', 'II', 'III', 'IV'][w.tier]}</span></div>`;
+    return `<div class="stat-row"><span style="color:${ELEMENTS[d.elem].color}">${ELEMENTS[d.elem].icon} ${d.name}</span><span class="v" style="color:${tierColor(w.id, w.tier)}">${d.evo ? '★' : ['I', 'II', 'III', 'IV'][w.tier]}</span></div>`;
   }).join('')}`;
   html += `<div class="stat-row"><span>Schadensreduktion (Rüstung)</span><span class="v">${Math.round((1 - g.armorFactor()) * 100)}%</span></div>`;
   $('#stats-list').innerHTML = html;
@@ -656,6 +707,7 @@ function applySettings() {
   renderer.shakeOn = store.settings.shake;
   if (game) game.dmgMode = store.settings.dmgMode;
   $('#btn-dash').classList.toggle('left', store.settings.dashSide === 'left');
+  $('#btn-ult').classList.toggle('left', store.settings.dashSide === 'left');
 }
 
 // ================= Anleitung =================
@@ -675,6 +727,8 @@ function renderHowto() {
     <p>💠 <b>Daten-Chips</b> von besiegten Gegnern geben Erfahrung (Level-Ups) und Credits. Kapseln <b>?</b> enthalten Items, grüne Kreuze heilen.</p>
     <p>🛒 Alle ${SHOP_EVERY} Wellen öffnet der <b>Schwarzmarkt</b>. Zwei gleiche Waffen gleicher Stufe kannst du zu einer stärkeren <b>verschmelzen</b> (bis Stufe IV). Mit 🔒 behältst du ein Angebot für später.</p>
     <p>❤️ Zu Beginn jeder Welle wirst du vollständig geheilt.</p>
+    <p>🌟 <b>Ultimate:</b> Jeder Kill lädt deine Spezialfähigkeit auf. Ist der goldene Knopf voll, tippe drauf (am PC: Q). Jeder Charakter hat eine eigene!</p>
+    <p>⭐ <b>Evolution:</b> Bringe eine Waffe auf Stufe IV und besitze das passende Item – dann wird sie nach der Welle zur <b>legendären Waffe</b>. Welches Item passt, steht in der Waffen-Info im Shop.</p>
     <h3>ELEMENTE</h3>
     <div class="elem-grid">${elems}</div>
     <h3>REAKTIONEN</h3>
@@ -834,6 +888,7 @@ const tut = {
     if (this.until && performance.now() > this.until) this.finish();
     else if (this.cur === 'move' && Math.hypot(p.x - this.sx, p.y - this.sy) > 90) this.finish();
     else if (this.cur === 'dash' && p.dashCd > 0) this.finish();
+    else if (this.cur === 'ult' && !game.ultReady) this.finish();
   },
 };
 
@@ -912,6 +967,14 @@ function updateHUD() {
     $('#wave-timer').classList.toggle('urgent', urgent);
   }
   if (g.boss) setScale('boss-fill', g.boss.hp / g.boss.maxHp);
+  const charge = g.ult.active ? 'active' : (g.ult.charge / 100).toFixed(2);
+  if (hudCache.ult !== charge) {
+    hudCache.ult = charge;
+    const ub = document.getElementById('btn-ult');
+    ub.classList.toggle('active', charge === 'active');
+    ub.classList.toggle('ready', charge === '1.00');
+    if (charge !== 'active') ub.style.setProperty('--charge', charge);
+  }
   const cd = Math.max(0, g.player.dashCd / g.dashCooldown).toFixed(2);
   if (hudCache.dash !== cd) {
     hudCache.dash = cd;

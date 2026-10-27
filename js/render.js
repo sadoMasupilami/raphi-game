@@ -12,6 +12,7 @@ export class Renderer {
     this.camY = 0;
     this.shakeOn = true;
     this.lowFx = false;
+    this.zoomFx = 1;
     this.resize();
   }
 
@@ -22,12 +23,22 @@ export class Renderer {
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.zoom = Math.max(0.6, Math.min(1.6, Math.min(this.w, this.h) / 480));
-    this.viewW = this.w / this.zoom;
-    this.viewH = this.h / this.zoom;
+    this.setView();
+  }
+
+  // Effektiver Zoom = Grundzoom × Kamera-Effekt (z. B. beim Boss-Auftritt)
+  setView() {
+    this.ez = this.zoom * this.zoomFx;
+    this.viewW = this.w / this.ez;
+    this.viewH = this.h / this.ez;
   }
 
   updateCamera(game, snap = false) {
-    const p = game.player;
+    const focus = game.cam.t > 0;
+    const targetZoom = focus ? game.cam.zoom : 1;
+    this.zoomFx = snap ? 1 : this.zoomFx + (targetZoom - this.zoomFx) * 0.08;
+    this.setView();
+    const p = focus ? game.cam : game.player;
     const m = 50;
     let tx;
     let ty;
@@ -42,7 +53,7 @@ export class Renderer {
 
   draw(game) {
     const ctx = this.ctx;
-    const z = this.zoom * this.dpr;
+    const z = this.ez * this.dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
@@ -80,6 +91,33 @@ export class Renderer {
     this.drawPointers(ctx, game);
     this.drawVignette(ctx, game);
     if (game.state === 'play') this.drawJoystick(ctx);
+    this.drawScreenFx(ctx, game);
+  }
+
+  // Glitch bei Treffern und Blitz bei großen Momenten
+  drawScreenFx(ctx, game) {
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    if (game.glitchT > 0 && !this.lowFx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (let i = 0; i < 5; i++) {
+        const h = (Math.random() * 0.05 + 0.01) * H;
+        const y = Math.random() * (H - h);
+        const dx = (Math.random() - 0.5) * 36 * this.dpr;
+        ctx.drawImage(this.canvas, 0, y, W, h, dx, y, W, h);
+      }
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(255,0,70,0.07)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(0,240,255,0.05)';
+      ctx.fillRect(6 * this.dpr, 0, W, H);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (game.flashFx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = hexToRgba(game.flashFx.color, Math.min(0.8, game.flashFx.a * 0.7));
+      ctx.fillRect(0, 0, W, H);
+    }
   }
 
   // Animierter Hintergrund fürs Menü
@@ -88,6 +126,8 @@ export class Renderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#04050c';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.zoomFx = 1;
+    this.setView();
     const z = this.zoom * this.dpr;
     const cx = 300 + Math.sin(t * 0.1) * 200;
     const cy = 300 + t * 25 % 600;
@@ -353,10 +393,16 @@ export class Renderer {
   drawPlayer(ctx, game) {
     const p = game.player;
     if (game.state === 'over' && p.hp <= 0) return;
+    this.drawUlt(ctx, game);
     // Waffen
     for (const w of game.weapons) {
       const d = WEAPONS[w.id];
       const spr = weaponSprite(w.id, ELEMENTS[d.elem].color);
+      if (d.evo) {
+        ctx.globalCompositeOperation = 'lighter';
+        drawSprite(ctx, dotSprite('#ffd740', 6), w.x, w.y, 0, 1.4 + Math.sin(game.time * 6) * 0.2);
+        ctx.globalCompositeOperation = 'source-over';
+      }
       if (d.kind === 'orbit') {
         for (const sh of w.shards || []) drawSprite(ctx, spr, sh.x, sh.y, sh.a + Math.PI / 2, 0.8 + w.tier * 0.08);
         continue;
@@ -397,6 +443,38 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(p.x, p.y, game.magnetR, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  drawUlt(ctx, game) {
+    const u = game.ult.active;
+    if (!u) return;
+    const p = game.player;
+    const k = Math.min(1, u.t / 0.4);
+    if (u.type === 'blades') {
+      ctx.strokeStyle = `rgba(255,120,60,${0.35 * k})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 150, 0, Math.PI * 2);
+      ctx.stroke();
+      const spr = weaponSprite('plasmaKlinge', '#ff6a2a');
+      for (let i = 0; i < 6; i++) {
+        const a = u.spin * 9 + (i / 6) * Math.PI * 2;
+        for (const r of [70, 140]) drawSprite(ctx, spr, p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, a + Math.PI / 2, 1.6);
+      }
+    } else if (u.type === 'rage' || u.type === 'shadow') {
+      const col = u.type === 'rage' ? '255,40,80' : '180,92,255';
+      const pulse = 0.5 + 0.5 * Math.sin(game.time * 12);
+      ctx.fillStyle = `rgba(${col},${0.12 + 0.1 * pulse})`;
+      ctx.strokeStyle = `rgba(${col},${0.7 * k})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 30 + pulse * 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else if (u.type === 'drones') {
+      const spr = weaponSprite('blitzDrohne', '#7dffef');
+      for (const d of u.drones || []) drawSprite(ctx, spr, d.x, d.y, d.a, 1.2);
+    }
   }
 
   drawEnemyBullets(ctx, game) {
@@ -449,6 +527,15 @@ export class Renderer {
   }
 
   drawEffects(ctx, game) {
+    // Weiches Licht von Explosionen
+    for (const l of game.lights) {
+      const k = l.life / l.max;
+      const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+      g.addColorStop(0, hexToRgba(l.color, 0.35 * k));
+      g.addColorStop(1, hexToRgba(l.color, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+    }
     for (const a of game.arcs) {
       const k = a.life / a.max;
       ctx.strokeStyle = hexToRgba(a.color, 0.7 * k);
@@ -547,8 +634,8 @@ export class Renderer {
   }
 
   drawPointer(ctx, wx, wy, color, size) {
-    const bx = (wx - this.camX) * this.zoom;
-    const by = (wy - this.camY) * this.zoom;
+    const bx = (wx - this.camX) * this.ez;
+    const by = (wy - this.camY) * this.ez;
     const m = 10;
     if (bx > -m && bx < this.w + m && by > -m && by < this.h + m) return;
     const ang = Math.atan2(by - this.h / 2, bx - this.w / 2);

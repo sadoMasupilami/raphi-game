@@ -133,6 +133,50 @@ h2, h3, .btn, .logo, #wave-label, #wave-timer, .bar span, .credits, .boss-name {
 .dash-btn.left { right: auto; left: calc(var(--safe-l) + 22px); }
 .dash-btn.ready { border-color: var(--cyan); box-shadow: 0 0 16px rgba(0, 240, 255, 0.6); opacity: 0.95; }
 .dash-btn:active { transform: scale(0.92); }
+/* Ultimate-Knopf über dem Dash */
+.ult-btn {
+  --charge: 0;
+  position: fixed;
+  right: calc(var(--safe-r) + 30px);
+  bottom: calc(var(--safe-b) + 122px);
+  width: 62px; height: 62px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 215, 64, 0.35);
+  background:
+    conic-gradient(rgba(255, 215, 64, 0.55) calc(var(--charge) * 360deg), rgba(4, 5, 12, 0.7) 0);
+  color: #fff;
+  font-family: Orbitron, sans-serif;
+  font-weight: 900;
+  pointer-events: auto;
+  touch-action: none;
+  opacity: 0.7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.ult-btn .ult-icon { font-size: 20px; }
+.ult-btn .ult-label { font-size: 9px; letter-spacing: 1px; margin-top: 2px; }
+.ult-btn.left { right: auto; left: calc(var(--safe-l) + 30px); }
+.ult-btn.ready {
+  opacity: 1;
+  border-color: #ffd740;
+  background: radial-gradient(circle, rgba(255, 215, 64, 0.7), rgba(255, 120, 0, 0.35));
+  box-shadow: 0 0 22px rgba(255, 215, 64, 0.9);
+  animation: ultPulse 0.9s ease-in-out infinite;
+}
+.ult-btn.active { opacity: 1; border-color: #fff; box-shadow: 0 0 26px #fff; }
+@keyframes ultPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+/* Evolution */
+.evo-panel { border-color: #ffd740; box-shadow: 0 0 40px rgba(255, 215, 64, 0.35); }
+.evo-panel h2 { color: #ffd740; text-shadow: 0 0 16px #ffd740; }
+.evo-recipe { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0 14px; font-size: 26px; }
+.evo-recipe img { width: 54px; height: 54px; }
+.evo-recipe .evo-result img { width: 80px; height: 80px; filter: drop-shadow(0 0 12px #ffd740); }
+.evo-name { font-family: Orbitron, sans-serif; font-weight: 900; font-size: 20px; color: #ffd740; text-shadow: 0 0 12px #ffd740; }
+.evo-hint { color: #ffd740; }
 .toggle .val { font-family: Orbitron, sans-serif; font-size: 13px; color: var(--cyan); }
 #boss-bar { margin: 10px auto 0; max-width: 420px; }
 .boss-name { text-align: center; font-size: 12px; font-weight: 900; letter-spacing: 3px; color: var(--red); text-shadow: 0 0 8px var(--red); margin-bottom: 3px; }
@@ -281,6 +325,7 @@ h3 {
 .char-perks { list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 1.3; text-align: left; }
 .char-perks li.neg { color: #ff8a9e; }
 .char-perks li.pos { color: #a8ffcf; }
+.char-perks li.ult { color: #ffd740; margin-top: 3px; }
 
 .diff-row { display: flex; gap: 8px; }
 .diff-btn { flex: 1; padding: 10px 4px; }

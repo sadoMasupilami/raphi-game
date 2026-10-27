@@ -2,7 +2,7 @@
 import {
   ELEMENTS, ELEMENT_ORDER, REACTIONS, reactionKey, WEAPONS, ITEMS, CHARACTERS, ENEMIES, DIFFICULTIES,
   BASE_STATS, UPGRADES, TIER_PRICE, BOLT_SHOCK_TIME, SHOCK_BONUS,
-  MAX_WAVE, MINIBOSS_WAVE, MAX_WEAPONS, waveDuration, WAVE_MODS, MOD_WAVES,
+  MAX_WAVE, MINIBOSS_WAVE, MAX_WEAPONS, waveDuration, WAVE_MODS, MOD_WAVES, EVOLUTIONS, ULTS,
 } from './data.js';
 import { audio } from './audio.js';
 import { input } from './input.js';
@@ -18,6 +18,10 @@ const DASH_SPEED = 820;
 const DASH_TIME = 0.17;
 
 const PRISM_D = {}; // Standardwerte für Elemente aus der Prisma-Linse
+// Unsichtbare "Waffe" für Geschosse der Ultimate-Fähigkeiten
+const ULT_W = { tier: 3 };
+const ULT_VOID_D = { elem: 'void', voidStacks: [3, 3, 3, 3], knock: 10 };
+const ULT_BOLT_D = { elem: 'bolt', knock: 5 };
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const pick = (arr) => arr[(Math.random() * arr.length) | 0];
@@ -76,6 +80,15 @@ export class Game {
     this.beams = [];
     this.arcs = [];
     this.boss = null;
+    // Ultimate & Spektakel
+    this.ult = { charge: 0, active: null };
+    this.slowT = 0;
+    this.slowScale = 1;
+    this.cam = { x: 0, y: 0, zoom: 1, t: 0 };
+    this.flashFx = null;
+    this.glitchT = 0;
+    this.lights = [];
+    this.lastFlash = 0;
 
     this.gridCols = Math.ceil(ARENA.w / CELL) + 1;
     this.gridRows = Math.ceil(ARENA.h / CELL) + 1;
@@ -131,7 +144,10 @@ export class Game {
     const d = WEAPONS[w.id];
     return Math.max(40, d.range + (d.type === 'melee' ? this.stats.range * 0.5 : this.stats.range));
   }
-  weaponCooldown(w) { return WEAPONS[w.id].cd[w.tier] * this.cdMult * (this.raging ? 1 / 1.3 : 1); }
+  weaponCooldown(w) {
+    const rage = this.ult.active && this.ult.active.type === 'rage' ? 0.5 : 1;
+    return WEAPONS[w.id].cd[w.tier] * this.cdMult * (this.raging ? 1 / 1.3 : 1) * rage;
+  }
   elemMult() { return Math.max(0.1, 1 + this.stats.elem / 100); }
 
   xpNeeded() { return (this.level + 3) * (this.level + 3); }
@@ -183,6 +199,7 @@ export class Game {
   itemPrice(id) { return Math.round(ITEMS[id].price * this.priceScale()); }
   sellPrice(index) {
     const w = this.weapons[index];
+    if (WEAPONS[w.id].evo) return Math.round(WEAPONS[w.id].price * 2 * this.priceScale());
     return Math.max(1, Math.round(this.weaponPrice(w.id, w.tier) * 0.4));
   }
   sellWeapon(index) {
@@ -221,8 +238,32 @@ export class Game {
   }
 
   randomWeaponId() {
-    if (this.weapons.length && Math.random() < 0.35) return pick(this.weapons).id;
-    return pick(Object.keys(WEAPONS).filter((id) => this.allowedWeapon(id)));
+    const owned = this.weapons.filter((w) => !WEAPONS[w.id].evo);
+    if (owned.length && Math.random() < 0.35) return pick(owned).id;
+    return pick(Object.keys(WEAPONS).filter((id) => this.allowedWeapon(id) && !WEAPONS[id].evo));
+  }
+
+  // ================= Evolution =================
+  // Stufe-IV-Waffe + passendes Item = legendäre Waffe
+  availableEvolutions() {
+    const out = [];
+    this.weapons.forEach((w, index) => {
+      if (w.tier !== 3) return;
+      const evo = EVOLUTIONS.find((v) => v.weapon === w.id && this.items.includes(v.item));
+      if (evo) out.push({ index, evo });
+    });
+    return out;
+  }
+
+  evolve(index, into) {
+    const w = this.weapons[index];
+    if (!w) return;
+    w.id = into;
+    w.anim = null;
+    w.shards = null;
+    w.hitT = null;
+    this.emit('weapon', { id: into, tier: 3 });
+    this.emit('evolve', into);
   }
 
   // ================= Level-Up =================
@@ -278,7 +319,10 @@ export class Game {
       const tier = this.rollTier(this.wave);
       return { type: 'weapon', id, tier, price: this.weaponPrice(id, tier) };
     }
-    const id = this.randomItem(this.rollTier(this.wave));
+    // Passende Evolutions-Items tauchen häufiger auf, wenn man die Waffe schon hochgestuft hat
+    const evoItems = EVOLUTIONS.filter((v) => !this.items.includes(v.item)
+      && this.weapons.some((w) => w.id === v.weapon && w.tier >= 2)).map((v) => v.item);
+    const id = evoItems.length && Math.random() < 0.25 ? pick(evoItems) : this.randomItem(this.rollTier(this.wave));
     return { type: 'item', id, price: this.itemPrice(id) };
   }
 
@@ -491,6 +535,10 @@ export class Game {
     if (def.boss) {
       this.boss = e;
       this.hooks.boss(e);
+      this.focusCam(x, y, 1.3, 1.7);
+      this.slowmo(1.5, 0.25);
+      this.screenFlash('#ff2255', 0.3);
+      this.shake = Math.max(this.shake, 10);
     }
     this.enemies.push(e);
     this.emit('enemy', type);
@@ -532,6 +580,12 @@ export class Game {
   // ================= Update =================
   update(dt) {
     if (this.state !== 'play') return;
+    // Kamera- und Bildschirmeffekte laufen in Echtzeit, Zeitlupe verlangsamt das Spiel
+    this.realtimeFx(dt);
+    if (this.slowT > 0) {
+      this.slowT -= dt;
+      dt *= this.slowScale;
+    }
     this.time += dt;
     const p = this.player;
     const s = this.stats;
@@ -594,6 +648,7 @@ export class Game {
     if (!(this.wave === MAX_WAVE && !this.bossAlive)) this.updateSpawning(dt);
     this.updateMarkers(dt);
     this.updateWeapons(dt);
+    this.updateUlt(dt);
     this.updateProjectiles(dt);
     this.updateEnemies(dt);
     this.updateEnemyBullets(dt);
@@ -1049,6 +1104,7 @@ export class Game {
             break;
           }
           this.hit(e, pr.dmg, pr.w, pr.d, pr.x - pr.vx * 0.05, pr.y - pr.vy * 0.05);
+          if (pr.d.blast) this.explode(pr.x, pr.y, pr.d.blast, pr.dmg * 0.6, pr.w, pr.d, pr.color);
           if (pr.kind === 'bullet' || pr.kind === 'homing') this.burst(pr.x, pr.y, pr.color, 3, 120);
           pr.pierce--;
           if (pr.pierce < 0) { remove = true; break; }
@@ -1065,6 +1121,7 @@ export class Game {
   explode(x, y, r, dmg, w, d, color) {
     for (const e of this.query(x, y, r)) this.hit(e, dmg, w, d, x, y);
     this.rings.push({ x, y, r0: 6, r1: r, life: 0.28, max: 0.28, color, width: 4 });
+    this.light(x, y, r * 1.8, color, 0.25);
     this.burst(x, y, color, 10, 200);
     audio.play('boom');
   }
@@ -1077,6 +1134,12 @@ export class Game {
     if (Math.random() * 100 < this.stats.crit) { dmg *= 2; crit = true; }
     if (e.shock > 0) dmg *= 1 + SHOCK_BONUS;
     if (this.raging) dmg *= 1.2;
+    const rage = this.ult.active && this.ult.active.type === 'rage';
+    if (rage) dmg *= 1.5;
+    if ((d.drain || rage) && this.player.lsBudget >= 1 && this.player.hp < this.stats.maxHp) {
+      this.player.lsBudget -= 1;
+      this.player.hp = Math.min(this.stats.maxHp, this.player.hp + 1);
+    }
     // Blitz zerstört Schilde doppelt so schnell
     if (e.shieldHp > 0 && d.elem === 'bolt') dmg *= 2;
     this.damage(e, dmg, crit ? '#fff27a' : '#ffffff', crit);
@@ -1179,6 +1242,11 @@ export class Game {
       this.addText(x, y - e.r - 18, R.name, R.color, 14, 0.9);
     }
     audio.play('reaction');
+    this.light(x, y, 160, R.color, 0.3);
+    if ((key === 'fire+bolt' || key === 'bolt+void') && this.time - this.lastFlash > 0.4) {
+      this.lastFlash = this.time;
+      this.screenFlash(R.color, 0.12);
+    }
     this.reactionCount++;
     this.emit('reaction', key);
     switch (key) {
@@ -1272,6 +1340,7 @@ export class Game {
     this.burst(e.x, e.y, e.def.color, e.def.boss ? 60 : 9, e.def.boss ? 400 : 170);
     if (!this.lowFx && this.corpses.length < 40) this.corpses.push({ sprite: e.sprite, x: e.x, y: e.y, rot: e.rot * 0.5, life: 0.22, max: 0.22 });
     audio.play('kill');
+    this.chargeUlt(e.def.boss ? 40 : e.elite ? 15 : 2 + Math.min(6, e.xp));
     if (this.stats.detonator > 0 && ++this.killStreak % 8 === 0) {
       const dd = (12 + this.wave * 4) * Math.max(0.1, 1 + this.stats.dmg / 100) * this.stats.detonator;
       this.rings.push({ x: e.x, y: e.y, r0: 8, r1: 85, life: 0.3, max: 0.3, color: '#ff9a3d', width: 6 });
@@ -1305,6 +1374,12 @@ export class Game {
       this.hooks.boss(null);
       this.shake = 14;
       audio.play('boom');
+      // Großes Finale: Zeitlupe, Zoom, Blitz
+      this.slowmo(1.6, 0.2);
+      this.focusCam(e.x, e.y, 1.35, 1.8);
+      this.screenFlash('#ffffff', 0.75);
+      this.light(e.x, e.y, 500, e.def.color, 1.2);
+      for (let i = 0; i < 4; i++) this.rings.push({ x: e.x, y: e.y, r0: 10 + i * 20, r1: 260 + i * 90, life: 0.6 + i * 0.2, max: 0.6 + i * 0.2, color: i % 2 ? '#ffffff' : e.def.color, width: 10 });
       for (let i = 0; i < 3; i++) this.dropPickup(e.x, e.y, 'crate', 0);
       this.score += e.type === 'omega' ? 5000 : 1500;
       this.emit('boss', e.type);
@@ -1687,6 +1762,7 @@ export class Game {
     }
     p.hp -= dmg;
     p.iframes = 0.45;
+    this.glitchT = 0.22;
     this.addText(p.x, p.y - 26, `-${dmg}`, '#ff4060', 16);
     this.shake = Math.max(this.shake, 6);
     this.hooks.vibrate(35);
@@ -1698,6 +1774,177 @@ export class Game {
       audio.play('gameover');
       setTimeout(() => this.hooks.gameOver(false), 900);
     }
+  }
+
+  // ================= Ultimate =================
+  get ultReady() { return this.ult.charge >= 100 && !this.ult.active; }
+
+  chargeUlt(v) {
+    if (this.ult.active) return;
+    const before = this.ult.charge;
+    this.ult.charge = Math.min(100, this.ult.charge + v);
+    if (before < 100 && this.ult.charge >= 100) {
+      audio.play('ultReady');
+      this.emit('ultReady');
+    }
+  }
+
+  ultDmg(base, perWave) {
+    return (base + perWave * this.wave) * Math.max(0.2, 1 + this.stats.dmg / 100) * (1 + this.stats.elem / 200);
+  }
+
+  useUlt() {
+    if (this.state !== 'play' || !this.ultReady) return false;
+    const p = this.player;
+    const id = this.char.id;
+    const U = ULTS[id] || ULTS.vex;
+    this.ult.charge = 0;
+    this.buildGrid();
+    this.addText(p.x, p.y - 44, U.name, this.char.color, 20, 1.3);
+    this.screenFlash(this.char.color, 0.45);
+    this.light(p.x, p.y, 420, this.char.color, 0.6);
+    this.shake = Math.max(this.shake, 9);
+    this.focusCam(p.x, p.y, 1.12, 0.6);
+    audio.play('ult');
+    this.emit('ult', id);
+    const start = (type, dur, extra = {}) => { this.ult.active = { type, t: dur, max: dur, tick: 0, spin: 0, ...extra }; };
+    switch (id) {
+      case 'nyx': {
+        // Blitze aus dem Himmel auf die nächsten 30 Gegner
+        const dmg = this.ultDmg(45, 12);
+        const near = this.enemies.filter((e) => !e.dead)
+          .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, 30);
+        for (const e of near) {
+          this.bolts.push({ pts: [[e.x + rand(-30, 30), e.y - 320], [e.x + rand(-25, 25), e.y - 160], [e.x, e.y]], life: 0.35, max: 0.35, color: '#ffe94a', width: 4 });
+          this.damage(e, dmg, '#ffe94a', true);
+          if (!e.dead) {
+            e.shock = 4;
+            if (!e.def.boss) e.frozen = Math.max(e.frozen, 1.8);
+          }
+        }
+        audio.play('zap');
+        break;
+      }
+      case 'brock': start('quake', 1.3, { waves: 0 }); break;
+      case 'echo': start('shadow', 6); break;
+      case 'ronin':
+        start('rage', 6);
+        p.hp = Math.min(this.stats.maxHp, p.hp + this.stats.maxHp * 0.4);
+        break;
+      case 'kai': start('drones', 8, { drones: [] }); break;
+      case 'prisma': {
+        const dmg = this.ultDmg(30, 8);
+        const cols = ['#ff6a2a', '#5fe3ff', '#ffe94a', '#b45cff'];
+        cols.forEach((c, i) => this.rings.push({ x: p.x, y: p.y, r0: 20, r1: 330 - i * 25, life: 0.5 + i * 0.1, max: 0.5 + i * 0.1, color: c, width: 9 }));
+        for (const e of this.query(p.x, p.y, 330)) {
+          this.damage(e, dmg, '#ffffff', true);
+          for (const el of ELEMENT_ORDER) {
+            if (e.dead) break;
+            e.reactCd = 0;
+            this.applyElement(e, el, 3, dmg, PRISM_D);
+          }
+        }
+        break;
+      }
+      default:
+        start('blades', 4);
+        p.iframes = Math.max(p.iframes, 0.6);
+    }
+    return true;
+  }
+
+  updateUlt(dt) {
+    const u = this.ult.active;
+    if (!u) return;
+    const p = this.player;
+    u.t -= dt;
+    u.tick -= dt;
+    u.spin += dt;
+    switch (u.type) {
+      case 'blades':
+        if (u.tick <= 0) {
+          u.tick = 0.15;
+          for (const e of this.query(p.x, p.y, 160)) {
+            this.damage(e, this.ultDmg(9, 3), '#ff8a5a');
+            if (!e.dead) { e.burnDps = Math.max(e.burnDps, this.ultDmg(6, 1.5)); e.burnT = 2.5; }
+          }
+        }
+        break;
+      case 'quake': {
+        const times = [0, 0.4, 0.8];
+        while (u.waves < 3 && u.max - u.t >= times[u.waves]) {
+          const r = 190 + u.waves * 70;
+          for (const e of this.query(p.x, p.y, r)) {
+            this.damage(e, this.ultDmg(28, 8), '#9df3ff', true);
+            if (e.dead) continue;
+            if (!e.def.boss) e.frozen = Math.max(e.frozen, 2);
+            e.slowT = 3;
+          }
+          this.rings.push({ x: p.x, y: p.y, r0: 20, r1: r, life: 0.45, max: 0.45, color: '#9df3ff', width: 12 });
+          this.burst(p.x, p.y, '#bff6ff', 20, r * 2);
+          this.shake = Math.max(this.shake, 10);
+          audio.play('slam');
+          u.waves++;
+        }
+        break;
+      }
+      case 'shadow':
+        if (u.tick <= 0) {
+          u.tick = 0.12;
+          const near = this.query(p.x, p.y, 450);
+          const target = near.length ? pick(near) : null;
+          if (target) {
+            const a = Math.atan2(target.y - p.y, target.x - p.x) + rand(-0.6, 0.6);
+            this.projectiles.push({
+              kind: 'homing', x: p.x, y: p.y, vx: Math.cos(a) * 460, vy: Math.sin(a) * 460,
+              r: 6, dmg: this.ultDmg(12, 3.5), w: ULT_W, d: ULT_VOID_D, color: '#b45cff', pierce: 1, life: 2, target, hit: new Set(),
+            });
+          }
+        }
+        break;
+      case 'drones': {
+        u.drones.length = 6;
+        for (let k = 0; k < 6; k++) {
+          const a = u.spin * 2 + (k / 6) * Math.PI * 2;
+          u.drones[k] = { x: p.x + Math.cos(a) * 95, y: p.y + Math.sin(a) * 95, a };
+        }
+        if (u.tick <= 0) {
+          u.tick = 0.35;
+          for (const dr of u.drones) {
+            const t = this.nearestEnemy(dr.x, dr.y, 260);
+            if (t) this.chainLightning(t, dr.x, dr.y, 1, 120, (e) => this.hit(e, this.ultDmg(8, 2.5), ULT_W, ULT_BOLT_D, dr.x, dr.y), '#7dffef');
+          }
+          audio.play('zap');
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    if (u.t <= 0) this.ult.active = null;
+  }
+
+  // ================= Spektakel =================
+  slowmo(t, scale) {
+    if (this.lowFx && scale < 0.5) scale = 0.5;
+    this.slowT = Math.max(this.slowT, t);
+    this.slowScale = scale;
+  }
+
+  focusCam(x, y, zoom, t) {
+    this.cam.x = x;
+    this.cam.y = y;
+    this.cam.zoom = zoom;
+    this.cam.t = t;
+  }
+
+  screenFlash(color, a) {
+    if (!this.flashFx || this.flashFx.a < a) this.flashFx = { color, a };
+  }
+
+  light(x, y, r, color, life) {
+    if (this.lowFx || this.lights.length > 24) return;
+    this.lights.push({ x, y, r, color, life, max: life });
   }
 
   // ================= Effekte =================
@@ -1744,12 +1991,25 @@ export class Game {
     decay(this.beams);
     decay(this.arcs);
     decay(this.corpses);
+    decay(this.lights);
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 30);
+
   }
 
   // Effekte auch in Pausen ausklingen lassen
+  realtimeFx(dt) {
+    if (this.cam.t > 0) this.cam.t -= dt;
+    if (this.glitchT > 0) this.glitchT -= dt;
+    if (this.flashFx) {
+      this.flashFx.a -= dt * 1.8;
+      if (this.flashFx.a <= 0) this.flashFx = null;
+    }
+  }
+
   updateIdle(dt) {
-    this.updateEffects(dt);
+    this.realtimeFx(dt);
+    if (this.slowT > 0) this.slowT -= dt;
+    this.updateEffects(dt * (this.slowT > 0 ? 0.35 : 1));
   }
 }
 

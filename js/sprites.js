@@ -290,7 +290,30 @@ export function pickupSprite(kind) {
 
 // ---------- Waffen ----------
 // Zeichnet die Waffe in lokalen Koordinaten, zeigt nach rechts (+x)
+// Legendäre Waffen nutzen die Form ihrer Basiswaffe – größer und mit goldenem Stern
+const EVO_BASE = {
+  sonnenklinge: 'plasmaKlinge', sonnenKanone: 'plasmaBlaster', gletscherbrecher: 'kryoHammer', nullpunkt: 'kryoGewehr',
+  gewittersturm: 'teslaSpule', ionenLanze: 'railgun', seuchenSchwarm: 'nanoSchwarm', seelenernte: 'voidSense',
+};
+
 export function drawWeaponShape(g, id, color) {
+  if (EVO_BASE[id]) {
+    g.save();
+    g.scale(1.25, 1.25);
+    drawWeaponShape(g, EVO_BASE[id], color);
+    g.restore();
+    neon(g, '#ffd740', 1.5, 8);
+    g.fillStyle = '#ffd740';
+    g.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i / 10) * Math.PI * 2;
+      const r = i % 2 ? 2 : 5;
+      g.lineTo(-4 + Math.cos(a) * r, -9 + Math.sin(a) * r);
+    }
+    g.closePath();
+    g.fill();
+    return;
+  }
   neon(g, color, 2.2, 8);
   g.fillStyle = hexToRgba(color, 0.3);
   g.lineJoin = 'round';

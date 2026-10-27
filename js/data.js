@@ -128,6 +128,75 @@ export const WEAPONS = {
   },
 };
 
+// ---------- Legendäre Evolutionen (Stufe-IV-Waffe + passendes Item) ----------
+const x4 = (v) => [v, v, v, v];
+const EVO_WEAPONS = {
+  sonnenklinge: {
+    name: 'Sonnenklinge', elem: 'fire', type: 'melee', kind: 'sweep', price: 80, evo: true,
+    dmg: x4(70), cd: x4(0.55), range: 145, scale: 1.3, arc: Math.PI * 2, burn: x4(24), knock: 110,
+    desc: 'Ein glühender Rundumschlag, der alles in Brand setzt.',
+  },
+  sonnenKanone: {
+    name: 'Sonnen-Kanone', elem: 'fire', type: 'ranged', kind: 'bullet', price: 80, evo: true,
+    dmg: x4(38), cd: x4(0.45), range: 420, scale: 1.2, speed: 820, pierce: x4(2), burn: x4(18), blast: 60, knock: 60,
+    desc: 'Plasmageschosse, die beim Aufprall explodieren.',
+  },
+  gletscherbrecher: {
+    name: 'Gletscherbrecher', elem: 'ice', type: 'melee', kind: 'slam', price: 80, evo: true,
+    dmg: x4(105), cd: x4(0.95), range: 150, scale: 1.5, aoe: x4(135), chill: x4(5), knock: 160,
+    desc: 'Riesige Eisschockwelle, die fast alles sofort einfriert.',
+  },
+  nullpunkt: {
+    name: 'Nullpunkt-Gewehr', elem: 'ice', type: 'ranged', kind: 'bullet', price: 80, evo: true,
+    dmg: x4(62), cd: x4(0.55), range: 560, scale: 1.3, speed: 1400, pierce: x4(8), chill: x4(3), knock: 40,
+    desc: 'Absolute Kälte, die durch ganze Horden schlägt.',
+  },
+  gewittersturm: {
+    name: 'Gewittersturm', elem: 'bolt', type: 'ranged', kind: 'chain', price: 80, evo: true,
+    dmg: x4(36), cd: x4(0.5), range: 360, scale: 1, chain: x4(12), knock: 20,
+    desc: 'Blitze springen auf bis zu 13 Gegner gleichzeitig.',
+  },
+  ionenLanze: {
+    name: 'Ionen-Lanze', elem: 'bolt', type: 'ranged', kind: 'beam', price: 80, evo: true,
+    dmg: x4(150), cd: x4(1.05), range: 720, scale: 2, width: 34, knock: 90,
+    desc: 'Ein armdicker Energiestrahl quer über die Arena.',
+  },
+  seuchenSchwarm: {
+    name: 'Seuchen-Schwarm', elem: 'void', type: 'ranged', kind: 'homing', price: 80, evo: true,
+    dmg: x4(26), cd: x4(0.7), range: 460, scale: 0.9, speed: 430, count: x4(7), voidStacks: x4(4), knock: 20,
+    desc: 'Ein ganzer Schwarm Nanobots, der Gegner zerfrisst.',
+  },
+  seelenernte: {
+    name: 'Seelenernte', elem: 'void', type: 'melee', kind: 'sweep', price: 80, evo: true,
+    dmg: x4(85), cd: x4(0.7), range: 150, scale: 1.4, arc: 3.8, voidStacks: x4(4), drain: true, knock: 90,
+    desc: 'Riesige Sense, jeder Treffer heilt dich.',
+  },
+};
+Object.assign(WEAPONS, EVO_WEAPONS);
+
+export const EVOLUTIONS = [
+  { weapon: 'plasmaKlinge', item: 'brennstoff', into: 'sonnenklinge' },
+  { weapon: 'plasmaBlaster', item: 'overclock', into: 'sonnenKanone' },
+  { weapon: 'kryoHammer', item: 'kryoKond', into: 'gletscherbrecher' },
+  { weapon: 'kryoGewehr', item: 'zielChip', into: 'nullpunkt' },
+  { weapon: 'teslaSpule', item: 'teslaVerst', into: 'gewittersturm' },
+  { weapon: 'railgun', item: 'optik', into: 'ionenLanze' },
+  { weapon: 'nanoSchwarm', item: 'voidReso', into: 'seuchenSchwarm' },
+  { weapon: 'voidSense', item: 'vampir', into: 'seelenernte' },
+];
+export const EVO_COLOR = '#ffd740';
+
+// ---------- Ultimate-Fähigkeiten (laden sich durch Kills auf) ----------
+export const ULTS = {
+  vex: { name: 'KLINGENSTURM', icon: '🌪️', desc: '4 s lang kreisen glühende Klingen um dich und zerfetzen alles.' },
+  nyx: { name: 'EMP-SCHLAG', icon: '⚡', desc: 'Ein Blitz trifft bis zu 30 Gegner und lähmt sie.' },
+  brock: { name: 'ERDBEBEN', icon: '🌋', desc: 'Drei Eis-Schockwellen frieren alles ringsum ein.' },
+  echo: { name: 'SCHATTENSCHWARM', icon: '🌑', desc: '6 s lang feuerst du unentwegt Void-Geschosse.' },
+  ronin: { name: 'BLUTRAUSCH', icon: '🩸', desc: '6 s doppeltes Angriffstempo, +50% Schaden, sofort 40% Heilung.' },
+  kai: { name: 'DROHNENSCHWARM', icon: '🛸', desc: '8 s lang kämpfen 6 Extra-Drohnen für dich.' },
+  prisma: { name: 'PRISMA-NOVA', icon: '🌈', desc: 'Alle 4 Elemente treffen gleichzeitig alles in der Nähe.' },
+};
+
 // Status-Effekte der Element-Waffen ohne eigenen Wert
 export const BOLT_SHOCK_TIME = 2.2;   // Sekunden geschockt
 export const SHOCK_BONUS = 0.2;       // +20 % Schaden auf geschockte Gegner
